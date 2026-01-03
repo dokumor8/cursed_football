@@ -1,11 +1,13 @@
 extends Node2D
 
-@onready var tilemap_layer: TileMapLayer = $TileMapLayer  # Adjust path
+@onready var terrain_layer: TileMapLayer = $TileMapLayer
+@onready var highlight_layer: TileMapLayer = $HighlightLayer
+var obstacles: Dictionary = {}
+
 var UnitScene: PackedScene = preload("res://unit.tscn")
 var UnitSelectionScene: PackedScene = preload("res://unit_selection.tscn")
 var unit_selection: UnitSelection
 
-var selected_unit_marker: Sprite2D
 
 var start_locations_1 = [Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8)]
 var home_location_1 = Vector2i(4, 9)
@@ -15,6 +17,17 @@ var home_location_2 = Vector2i(4, 3)
 var selected_tile: Vector2i
 var selected_unit: Unit
 
+var astar: AStar2D
+var coord_to_id: Dictionary = {}
+
+const HEX_NEIGHBORS = [
+    TileSet.CELL_NEIGHBOR_BOTTOM_SIDE,
+    TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE,
+    TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_SIDE,
+    TileSet.CELL_NEIGHBOR_LEFT_SIDE,
+    TileSet.CELL_NEIGHBOR_TOP_LEFT_SIDE,
+    TileSet.CELL_NEIGHBOR_TOP_RIGHT_SIDE
+]
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -28,53 +41,132 @@ func _ready() -> void:
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
 
+    _ready_grid()
+
+
+func get_tile_path(start_coords: Vector2i, end_coords: Vector2i) -> PackedVector2Array:
+    var sid = coord_to_id.get(start_coords, -1)
+    var eid = coord_to_id.get(end_coords, -1)
+    if sid == -1 or eid == -1: return []
+    return astar.get_point_path(sid, eid)
+
+
+
+func _ready_grid():
+    astar = AStar2D.new()
+    var used_cells = terrain_layer.get_used_cells()
+    var id_counter = 0
+    
+    # Add walkable points
+    for coords in used_cells:
+        if not _is_walkable(coords): continue
+        var center = terrain_layer.map_to_local(coords)
+        astar.add_point(id_counter, center)
+        coord_to_id[coords] = id_counter
+        id_counter += 1
+    
+    # Connect neighbors
+    for coords in coord_to_id.keys():
+        var id = coord_to_id[coords]
+        for dir in HEX_NEIGHBORS:
+            var ncoords = terrain_layer.get_neighbor_cell(coords, dir)
+            if ncoords in coord_to_id:
+                var nid = coord_to_id[ncoords]
+                astar.connect_points(id, nid, true)
+
+
+func _is_walkable(coords: Vector2i) -> bool:
+    if terrain_layer.get_cell_source_id(coords) == -1:
+        return false
+    return not obstacles.has(coords)
+
 
 func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1):
     var unit = spawning_scene.instantiate()
     unit.conflict_side = side
     add_child(unit)
     unit.grid_position = grid_pos
-    var local_pos = tilemap_layer.map_to_local(grid_pos)
-    var global_pos = tilemap_layer.to_global(local_pos)
+    obstacles[grid_pos] = true
+    
+    var local_pos = terrain_layer.map_to_local(grid_pos)
+    var global_pos = terrain_layer.to_global(local_pos)
     unit.global_position = global_pos
 
 
-func select_tile(coords: Vector2i) -> bool:
+func select_tile(coords: Vector2i) -> void:
     selected_tile = coords
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         if unit.grid_position == coords:
             select_unit(unit)
-            return true
-    return false
+            return
+    if selected_unit:
+        var unit_coords = selected_unit.grid_position
+        print("Unit from", unit_coords)
+        print("walks to", coords)
+
+
+func highlight_walkable_tiles(starting_coord) -> void:
+
+    for coord in highlight_layer.get_used_cells():
+        highlight_layer.erase_cell(coord)
+
+    var reachable = get_reachable_tiles(starting_coord, 2)
+    print(reachable)
+    for tile in reachable:
+        highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
 
 
 func select_unit(unit: Unit) -> void:
     unit_selection.global_position = unit.global_position
     unit_selection.visible = true
     selected_unit = unit
+    highlight_walkable_tiles(unit.grid_position)
+
+
+func _handle_tile_click(tile_coords: Vector2i) -> void:
+    # check that tile is in the board
+    if terrain_layer.get_cell_source_id(tile_coords) != -1:
+        print("Clicked tile at: ", tile_coords)
+        
+        select_tile(tile_coords)
+        
+    else:
+        clear_selection()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventMouseButton \
     and event.button_index == MOUSE_BUTTON_LEFT \
     and event.pressed:
         
-        var local_pos: Vector2 = tilemap_layer.to_local(get_global_mouse_position())
-        var tile_coords: Vector2i = tilemap_layer.local_to_map(local_pos)
-        
-        if tilemap_layer.get_cell_source_id(tile_coords) != -1:
-            print("Selected tile at: ", tile_coords)
-            var was_selected = select_tile(tile_coords)
-            if not was_selected:
-                clear_selection()
-            
-        else:
-            clear_selection()
+        var local_pos: Vector2 = terrain_layer.to_local(get_global_mouse_position())
+        var tile_coords: Vector2i = terrain_layer.local_to_map(local_pos)
+
+        _handle_tile_click(tile_coords)
 
 
 func clear_selection():
     unit_selection.visible = false
+    selected_unit = null
 
-#func _unhandled_input(event: InputEvent) -> void:
-    # ... same if-condition ...
 
-    # ... rest same ...
+func get_reachable_tiles(start: Vector2i, max_distance: int) -> Array[Vector2i]:
+    var reachable: Array[Vector2i] = []
+    var queue: Array[Vector2i] = [start]
+    var distances: Dictionary = {start: 0}
+    var visited: Dictionary = {start: true}
+    
+    while not queue.is_empty():
+        var current = queue.pop_front()
+        var dist = distances[current]
+        if dist > max_distance:
+            continue
+        reachable.append(current)
+        
+        for neighbor in terrain_layer.get_surrounding_cells(current):
+            if neighbor == Vector2i(-1, -1) or visited.has(neighbor) or not _is_walkable(neighbor):
+                continue
+            visited[neighbor] = true
+            distances[neighbor] = dist + 1
+            queue.append(neighbor)
+    
+    return reachable
