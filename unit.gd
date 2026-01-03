@@ -2,6 +2,7 @@ class_name Unit
 extends Node2D
 @export var conflict_side: int = 1
 @export var grid_position: Vector2i
+@export var speed: int = 2
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:

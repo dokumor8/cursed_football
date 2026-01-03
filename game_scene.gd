@@ -78,7 +78,9 @@ func _ready_grid():
 func _is_walkable(coords: Vector2i) -> bool:
     if terrain_layer.get_cell_source_id(coords) == -1:
         return false
-    return not obstacles.has(coords)
+    if not obstacles.has(coords):
+        return true
+    return not obstacles[coords]
 
 
 func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1):
@@ -103,15 +105,23 @@ func select_tile(coords: Vector2i) -> void:
         var unit_coords = selected_unit.grid_position
         print("Unit from", unit_coords)
         print("walks to", coords)
+        var reachable = get_reachable_tiles(unit_coords, selected_unit.speed)
+        if reachable.has(coords):
+            move_unit(selected_unit, coords)
+            clear_selection()
+            clear_walkable_highlight()
 
 
-func highlight_walkable_tiles(starting_coord) -> void:
-
+func clear_walkable_highlight() -> void:
     for coord in highlight_layer.get_used_cells():
         highlight_layer.erase_cell(coord)
 
-    var reachable = get_reachable_tiles(starting_coord, 2)
-    print(reachable)
+
+func highlight_walkable_tiles(unit) -> void:
+    var starting_coord = unit.grid_position
+    clear_walkable_highlight()
+
+    var reachable = get_reachable_tiles(starting_coord, unit.speed)
     for tile in reachable:
         highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
 
@@ -120,7 +130,7 @@ func select_unit(unit: Unit) -> void:
     unit_selection.global_position = unit.global_position
     unit_selection.visible = true
     selected_unit = unit
-    highlight_walkable_tiles(unit.grid_position)
+    highlight_walkable_tiles(unit)
 
 
 func _handle_tile_click(tile_coords: Vector2i) -> void:
@@ -170,3 +180,10 @@ func get_reachable_tiles(start: Vector2i, max_distance: int) -> Array[Vector2i]:
             queue.append(neighbor)
     
     return reachable
+
+
+func move_unit(unit, target_cell) -> void:
+    obstacles[unit.grid_position] = false
+    unit.grid_position = target_cell
+    unit.global_position = terrain_layer.to_global(terrain_layer.map_to_local(target_cell))
+    obstacles[target_cell] = true
