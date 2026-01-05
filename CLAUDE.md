@@ -17,42 +17,77 @@
    - Obstacle tracking for occupied tiles
 
 2. **Unit System**
-   - Basic Unit class with properties: `conflict_side`, `grid_position`, `speed`
-   - Two teams (side 1 and side 2) with predefined start positions
-   - Unit spawning at designated locations
+   - Enhanced Unit class with: `conflict_side`, `grid_position`, `speed`, `movement_left`
+   - Two teams (Red vs Blue) with different sprites (`unit_red.png`, `unit_blue.png`)
+   - Unit spawning at designated start positions
+   - HP system: 2 HP per unit with visual HP labels
+   - Combat stats: `attack_power`, `has_attacked_this_turn`
 
-3. **Selection & Movement**
+3. **Turn-Based Gameplay**
+   - Player turn tracking (Red vs Blue alternating)
+   - "End Turn" button for explicit turn switching
+   - Per-unit movement tracking (`movement_left` resets each turn)
+   - Attack once per turn restriction
+
+4. **Selection & Movement**
    - Click-to-select units with visual indicator
-   - A* pathfinding for movement between tiles
    - BFS algorithm for reachable tile calculation (`get_reachable_tiles`)
-   - Walkable tile highlighting based on unit speed
-   - Basic unit movement with obstacle updates
+   - Walkable tile highlighting based on remaining movement
+   - Unit movement with obstacle updates
+   - Movement cost: 1 per tile
 
-4. **Input Handling**
+5. **Combat System**
+   - Adjacency-based attacks (range 1)
+   - Damage calculation: 1 damage per attack
+   - HP tracking with visual indicators above units
+   - Death mechanics: Units removed when HP ≤ 0
+   - Attack highlighting: Enemy units in range are highlighted
+   - Post-attack penalty: `movement_left = 0`
+
+6. **Revive System**
+   - Revive token tracking per player
+   - Kill rewards: Gain revive token when killing enemy unit
+   - UI integration: Revive button and counter
+   - (Note: Actual revive mechanics not yet implemented)
+
+7. **UI/HUD System**
+   - CanvasLayer-based UI architecture
+   - Turn indicator showing current player (color-coded)
+   - "End Turn" button for turn management
+   - Revive UI with button and counter
+   - Relic status placeholder
+   - Professional container layout (MarginContainer, HBoxContainer)
+
+8. **Input Handling**
    - Mouse click detection on hex tiles
    - Tile coordinate conversion
+   - Smart click logic: Attack > Move > Select
 
-5. **Visual Assets**
+9. **Visual Assets**
    - Hex tile textures (normal and highlight variants)
-   - Unit sprite (unit1.png)
+   - Unit sprites: `unit_red.png`, `unit_blue.png`
    - Selection indicator graphic
+   - HP labels with color coding (white → yellow → red)
 
 ### ❌ **Missing / Planned Features**
-1. **Core Game Rules** - Not implemented yet
-2. **Combat System** - No damage or health mechanics
-3. **Turn Structure** - No turn-based gameplay
-4. **Relic System** - Central game mechanic not implemented
-5. **Goal/Scoring** - No win conditions
-6. **UI/HUD** - No player interface
-7. **Audio** - No sound effects or music
-8. **Multiplayer** - Single-player only
-9. **Polish** - Minimal visual feedback
+1. **Relic System** - Central game mechanic not implemented
+2. **Goal/Scoring** - No win conditions or goal tiles
+3. **Revive Mechanics** - UI exists but actual revival not implemented
+4. **Audio** - No sound effects or music
+5. **Online Multiplayer** - Hotseat only (local player switching)
+6. **Polish** - Limited visual feedback for attacks
+7. **Balance & Testing** - Game balance needs tuning
 
-### 📝 **Recent Changes**
-- Added `relic_timer` and `relic_speed_effect` variables (planned mechanic)
-- Basic movement system (commit: "Move units")
-- Walkable tile highlighting (commit: "Add highlight to walkable places")
-- Unit selection system (commit: "selection")
+### 📝 **Recent Changes (2026-01-05 Session)**
+- **Project Reorganization**: Moved files to `scenes/`, `scripts/`, `assets/` structure
+- **Faction Sprites**: Added red/blue unit sprites with dynamic loading
+- **Turn System**: Implemented player turns with "End Turn" button
+- **Movement Tracking**: Added `movement_left` per unit, resets each turn
+- **Combat System**: Full HP/damage system with adjacency attacks
+- **Death Mechanics**: Unit removal and revive token tracking
+- **UI Overhaul**: CanvasLayer with turn indicator, revive UI, proper layout
+- **Attack Highlighting**: Enemy units in range highlighted when unit selected
+- **Bug Fixes**: Fixed attack logic for enemy unit clicking
 
 ## Game Mechanics & Rules
 
@@ -113,109 +148,154 @@ A hex-based tactical game similar to football (soccer):
 
 ## Planned Features & Development Roadmap
 
-### Phase 1: Core Gameplay (Current Focus)
-- [ ] Implement combat system (HP, damage, attacks)
-- [ ] Add turn-based structure
-- [ ] Implement relic mechanics (pickup, carrying, effects)
-- [ ] Add goal tiles and scoring
-- [ ] Basic UI (turn indicator, score display)
+### Phase 1: Core Gameplay (COMPLETED ✅)
+- [x] **Combat System**: HP, damage, adjacency attacks, death mechanics
+- [x] **Turn-Based Structure**: Player turns, "End Turn" button, movement tracking
+- [x] **Basic UI**: Turn indicator, revive UI, CanvasLayer architecture
+- [x] **Project Organization**: Proper folder structure (`scenes/`, `scripts/`, `assets/`)
+- [x] **Visual Feedback**: HP labels, attack highlighting, unit selection
 
-### Phase 2: Multiplayer & Polish
-- [ ] **Hotseat Mode** (local multiplayer - player switching)
-- [ ] **Online Multiplayer** (primary goal - play with friends via browser)
-- [ ] Enhanced UI (health bars, relic status, turn timer)
-- [ ] Visual feedback (attack animations, score effects)
-- [ ] Audio system (SFX, background music)
+### Phase 2: Game Completion (Current Focus)
+- [ ] **Relic Mechanics**: Pickup, carrying, speed progression, stealing
+- [ ] **Goal & Scoring**: Goal tiles, win conditions, score tracking
+- [ ] **Revive Implementation**: Actual unit revival on spawn tiles
+- [ ] **Hotseat Polish**: Improved UI feedback, turn timer, game state display
+- [ ] **Balance Testing**: Tune movement, attack values, revive costs
 
-### Phase 3: Advanced Features
-- [ ] **AI Opponent** (single-player mode)
-- [ ] Game balance testing & tuning
-- [ ] Multiple maps/levels
-- [ ] Player customization (unit colors, names)
-- [ ] Game statistics & replay system
+### Phase 3: Multiplayer & Polish
+- [ ] **Online Multiplayer**: Network synchronization for browser play
+- [ ] **Enhanced Visuals**: Attack animations, death effects, better highlights
+- [ ] **Audio System**: Sound effects for moves, attacks, deaths, UI
+- [ ] **UI Polish**: Improved layouts, tooltips, game state explanations
+- [ ] **Mobile Optimization**: Touch controls, responsive UI scaling
+
+### Phase 4: Advanced Features
+- [ ] **AI Opponent**: Single-player mode with difficulty levels
+- [ ] **Multiple Maps**: Different grid layouts and starting positions
+- [ ] **Game Statistics**: Win/loss tracking, move history, replay system
+- [ ] **Player Customization**: Unit colors, names, cosmetic options
+- [ ] **Tutorial System**: In-game instructions for new players
 
 ### Technical Goals
 - **Browser Deployment**: Export as HTML5 for web play
-- **Simple Multiplayer**: Direct peer-to-peer or simple server
+- **Simple Multiplayer**: Direct peer-to-peer or simple server architecture
 - **Mobile-Friendly**: Responsive controls for touch devices
+- **Performance**: Optimized for smooth gameplay on lower-end devices
 
 ## Technical Architecture
 
 ### Current Code Structure
 ```
-game_scene.gd           # Main game logic (602 lines)
-├── Grid management (TileMapLayer, obstacles)
-├── Pathfinding (AStar2D)
-├── Unit movement & selection
-├── Input handling
-└── Game state variables
+scripts/game/
+├── game_scene.gd           # Main game logic (~350 lines)
+│   ├── Grid management (TileMapLayer, obstacles)
+│   ├── Turn tracking (current_player, _switch_player_turn)
+│   ├── Movement system (get_reachable_tiles, move_unit)
+│   ├── Combat logic (attack handling, death processing)
+│   ├── UI management (turn indicator, revive UI updates)
+│   ├── Input handling (select_tile, _handle_tile_click)
+│   └── Game state (obstacles, selected_unit, revive counts)
+│
+├── unit.gd                 # Enhanced Unit class definition
+│   ├── Basic properties (conflict_side, grid_position, speed)
+│   ├── Combat stats (max_hp, current_hp, attack_power)
+│   ├── Turn tracking (movement_left, has_attacked_this_turn)
+│   ├── Combat methods (take_damage, attack, is_dead)
+│   ├── Turn management (reset_turn)
+│   ├── Visual components (sprite, hp_label)
+│   └── HP label management (_create_hp_label, _update_hp_label)
+│
+└── unit_selection.gd       # Visual selection indicator
 
-unit.gd                 # Unit class definition
-├── conflict_side (1 or 2)
-├── grid_position
-└── speed attribute
+scenes/game/
+├── game_scene.tscn         # Main game scene
+│   ├── TileMapLayer (terrain)
+│   ├── HighlightLayer (walkable/attack highlights)
+│   ├── UILayer (CanvasLayer with UI containers)
+│   └── Unit instances
+│
+├── unit.tscn               # Unit scene template
+│   ├── Node2D root
+│   └── Sprite2D (texture set in code)
+│
+└── unit_selection.tscn     # Selection indicator scene
 
-unit_selection.gd       # Visual selection indicator
+scenes/ui/
+└── main_menu.tscn          # Placeholder main menu
+
+assets/
+├── textures/
+│   ├── tiles/             # Hex tile textures
+│   ├── objects/           # Unit sprites (unit_red.png, unit_blue.png)
+│   └── ui/               # UI elements
+└── images/               # Legacy images folder
 ```
 
-### Key Algorithms
-1. **Pathfinding**: `AStar2D` for hex grid navigation
-2. **Movement Range**: BFS in `get_reachable_tiles()`
-3. **Grid Coordination**: `Vector2i` coordinate system with neighbor detection
+### Key Algorithms & Systems
+1. **Movement Range**: BFS in `get_reachable_tiles()` using `movement_left`
+2. **Combat Resolution**: Adjacency check + damage calculation
+3. **Turn Management**: Player switching with unit state reset
+4. **UI Architecture**: CanvasLayer with container-based layout
+5. **Input Processing**: Smart click logic (Attack > Move > Select)
+6. **Obstacle Tracking**: Dictionary-based tile occupancy system
 
 ### Scene Structure
-- `game_scene.tscn`: Main game scene with TileMapLayer
-- `unit.tscn`: Unit scene with Sprite2D
-- `unit_selection.tscn`: Selection indicator scene
-- `main_menu.tscn`: Placeholder main menu (minimal)
+- **`game_scene.tscn`**: Root scene with TileMapLayers, CanvasLayer UI
+- **`unit.tscn`**: Template for units (dynamically colored via code)
+- **`unit_selection.tscn`**: Visual indicator for selected units
+- **UI Hierarchy**: `UILayer` → `MainUIContainer` → `TopBar`/`BottomBar`
 
-## Project Structure Recommendations
+### Design Patterns
+- **Component-based Units**: Stats and behavior in `unit.gd`, visuals in scene
+- **Event-driven Input**: `_unhandled_input()` → `_handle_tile_click()` → `select_tile()`
+- **State Management**: Central game state in `game_scene.gd`
+- **UI Separation**: CanvasLayer ensures UI stays above game world
+- **Resource Management**: Texture preloading for performance
 
-### Current Problems
-- Files scattered in root directory
-- No clear separation of concerns
-- Assets mixed with code files
-- No scene organization
+## Project Structure (IMPLEMENTED ✅)
 
-### Recommended Structure
+### Current Structure (As Implemented)
 ```
 /
-├── scenes/                    # All .tscn files
+├── scenes/                    # All .tscn files (IMPLEMENTED)
 │   ├── game/                 # Gameplay scenes
 │   │   ├── game_scene.tscn
 │   │   ├── unit.tscn
 │   │   └── unit_selection.tscn
 │   └── ui/                   # UI scenes
-│       ├── main_menu.tscn
-│       └── (future UI scenes)
-├── scripts/                  # All .gd files
-│   ├── game/                 # Gameplay logic
-│   │   ├── game_scene.gd
-│   │   ├── unit.gd
-│   │   ├── combat.gd         # Future: combat system
-│   │   ├── turn_manager.gd   # Future: turn system
-│   │   └── relic.gd          # Future: relic mechanics
-│   └── ui/                   # UI logic
-│       └── (future UI scripts)
-├── assets/                   # All visual/audio assets
+│       └── main_menu.tscn
+│
+├── scripts/                  # All .gd files (IMPLEMENTED)
+│   └── game/                 # Gameplay logic
+│       ├── game_scene.gd     # Main game logic (includes combat/turns)
+│       ├── unit.gd           # Enhanced unit class with combat
+│       └── unit_selection.gd # Selection indicator
+│
+├── assets/                   # All visual assets (PARTIALLY IMPLEMENTED)
 │   ├── textures/            # Images, sprites
 │   │   ├── tiles/          # Hex tiles
-│   │   ├── units/          # Unit sprites
+│   │   ├── objects/        # Unit sprites (unit_red.png, unit_blue.png)
 │   │   └── ui/             # UI elements
-│   ├── fonts/               # Font files
-│   └── audio/               # Sound effects & music
-├── config/                  # Configuration files
-│   ├── game_config.gd      # Game balance constants
-│   └── (other configs)
+│   └── images/             # Legacy folder (some images still here)
+│
 └── project.godot           # Godot project config
 ```
 
-### Immediate Improvements
-1. **Move .tscn files** to `scenes/` directory
-2. **Move .gd files** to `scripts/` directory
-3. **Move images** to `assets/textures/` directory
-4. **Create scene subfolders** for better organization
-5. **Separate concerns** into dedicated scripts (combat, turns, etc.)
+### Structure Status
+✅ **COMPLETED**:
+- Scene organization (`scenes/game/`, `scenes/ui/`)
+- Script organization (`scripts/game/`)
+- Basic asset structure (`assets/textures/`)
+
+🔄 **PARTIAL**:
+- Some images still in legacy `images/` folder
+- No `audio/` or `fonts/` folders yet (not needed currently)
+
+📋 **RECOMMENDED NEXT STEPS**:
+1. Move remaining images from `images/` to `assets/textures/`
+2. Create `config/` folder for game balance constants
+3. Add `audio/` folder when sound effects are implemented
+4. Consider separating `combat.gd` and `turn_manager.gd` if code grows
 
 ## Development Notes
 
@@ -242,37 +322,47 @@ unit_selection.gd       # Visual selection indicator
 - Map size and unit count optimization
 
 ### Known Issues & TODOs
-1. **Combat System**: Needs HP tracking, damage calculation, death/respawn
-2. **Turn Management**: Player switching, action limits, turn phases
-3. **Relic Implementation**: Pickup, carrying state, speed progression
-4. **UI/UX**: Player feedback, status display, controls explanation
-5. **Multiplayer**: Network synchronization, connection handling
+1. **Attack Feedback**: Limited visual distinction between walkable and attackable tiles
+2. **Revive Mechanics**: UI exists but actual revival not implemented
+3. **Relic System**: Core game mechanic still missing
+4. **Win Conditions**: No goal tiles or scoring system
+5. **Balance Issues**: Movement/attack values may need tuning
+6. **UI Polish**: Could use more visual feedback for attacks and deaths
+7. **Code Organization**: `game_scene.gd` is getting large (~350 lines)
 
 ---
 
 ## For Future AI Sessions
 
 ### Key Context Points
-- This is a **hex-based tactics game**
-- Game is football/soccer inspired with a central relic objective
-- Focus on **multiplayer browser play** with friends
-- Current state: Basic movement/selection only, missing core mechanics
-- **Hotseat mode** is first multiplayer target, then online multiplayer
+- **Hex-based tactics game** with football/soccer inspiration
+- **Core gameplay loop implemented**: Combat + turns + movement
+- **Current state**: Functional hotseat multiplayer with combat system
+- **Missing**: Relic mechanics, win conditions, revive implementation
+- **Project organized**: Proper folder structure with scenes/scripts/assets
 
-### Development Priorities
-1. **Core gameplay loop** (combat + turns + relic)
-2. **Hotseat multiplayer** (local player switching)
-3. **Browser deployment** testing
-4. **Polish & UI** for playability
-5. **Online multiplayer** implementation
+### Current Architecture
+- **Main scene**: `game_scene.tscn` with TileMapLayers and CanvasLayer UI
+- **Unit system**: Enhanced `unit.gd` with HP, combat, turn tracking
+- **Turn system**: Player switching with "End Turn" button
+- **Combat**: Adjacency-based attacks with HP tracking
+- **UI**: CanvasLayer with turn indicator, revive UI, proper containers
+
+### Development Priorities (Next Session)
+1. **Relic Mechanics**: Implement pickup, carrying, speed progression
+2. **Goal System**: Add goal tiles and win conditions
+3. **Revive Implementation**: Complete the revive mechanics
+4. **UI Polish**: Better visual feedback for attacks and game state
+5. **Balance Testing**: Tune movement, attack, and revive values
 
 ### Testing Focus
 - Relic power progression balance
-- Anti-turtling effectiveness
-- Game length and pacing
-- Multiplayer synchronization
+- Combat effectiveness and unit survivability
+- Turn pacing and game length
+- Hotseat gameplay experience
+- UI clarity and player feedback
 
 ---
 
-*Last Updated: 2026-01-05*
-*Maintained for Claude Code/DeepSeek AI collaboration*
+*Last Updated: 2026-01-05* (Major update - combat system, turns, UI)
+*Maintained for Claude Code AI collaboration*
