@@ -20,19 +20,29 @@ var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]
 var selected_tile: Vector2i
 var selected_unit: Unit
 
+# Turn tracking
+var current_player: int = 1  # 1 = Red player (bottom), 2 = Blue player (top)
+
+# UI elements
+@onready var turn_label: Label
+
 
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-    
+
     unit_selection = UnitSelectionScene.instantiate()
     unit_selection.visible = false
     add_child(unit_selection)
-    
+
     for location in start_locations_1:
         _spawn_unit_at_tile(UnitScene, location, 1)
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
+
+    # Create turn indicator UI
+    _create_turn_indicator()
+    _update_turn_indicator()
 
 
 func _is_walkable(coords: Vector2i) -> bool:
@@ -57,10 +67,18 @@ func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1
 
 func select_tile(coords: Vector2i) -> void:
     selected_tile = coords
+
+    # Check if clicking on a unit
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         if unit.grid_position == coords:
-            select_unit(unit)
+            # Only allow selecting units belonging to current player
+            if unit.conflict_side == current_player:
+                select_unit(unit)
+            else:
+                print("Cannot select opponent's unit during your turn")
             return
+
+    # If we have a selected unit, try to move it
     if selected_unit:
         var unit_coords = selected_unit.grid_position
         print("Unit from", unit_coords)
@@ -70,6 +88,17 @@ func select_tile(coords: Vector2i) -> void:
             move_unit(selected_unit, coords)
             clear_selection()
             clear_walkable_highlight()
+            # Switch to next player's turn after moving
+            _switch_player_turn()
+        else:
+            # Clicked on a tile that's not reachable - clear selection
+            print("Tile not reachable")
+            clear_selection()
+            clear_walkable_highlight()
+    else:
+        # Clicked on empty tile with no unit selected - clear any existing selection
+        clear_selection()
+        clear_walkable_highlight()
 
 
 func clear_walkable_highlight() -> void:
@@ -147,3 +176,37 @@ func move_unit(unit, target_cell) -> void:
     unit.grid_position = target_cell
     unit.global_position = terrain_layer.to_global(terrain_layer.map_to_local(target_cell))
     obstacles[target_cell] = true
+
+
+func _switch_player_turn() -> void:
+    # Switch to the other player
+    if current_player == 1:
+        current_player = 2
+        print("Now it's Blue player's turn")
+    else:
+        current_player = 1
+        print("Now it's Red player's turn")
+    # Update the UI
+    _update_turn_indicator()
+
+
+func _create_turn_indicator() -> void:
+    # Create a simple label to show current turn
+    turn_label = Label.new()
+    turn_label.name = "TurnLabel"
+    turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    turn_label.size = Vector2(200, 50)
+    turn_label.position = Vector2(10, 10)
+    turn_label.add_theme_font_size_override("font_size", 24)
+    add_child(turn_label)
+
+
+func _update_turn_indicator() -> void:
+    # Update the label text based on current player
+    if current_player == 1:
+        turn_label.text = "Red Player's Turn"
+        turn_label.add_theme_color_override("font_color", Color.RED)
+    else:
+        turn_label.text = "Blue Player's Turn"
+        turn_label.add_theme_color_override("font_color", Color.BLUE)

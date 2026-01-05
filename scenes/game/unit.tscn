@@ -7,4 +7,6 @@
 script = ExtResource("2_ctwoc")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
+# Texture will be set in code based on conflict_side
+# This texture is just for editor visibility
 texture = ExtResource("2_s6378")
