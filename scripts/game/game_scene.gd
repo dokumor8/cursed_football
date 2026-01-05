@@ -23,6 +23,10 @@ var selected_unit: Unit
 # Turn tracking
 var current_player: int = 1  # 1 = Red player (bottom), 2 = Blue player (top)
 
+# Revive tracking
+var red_revive_count: int = 0
+var blue_revive_count: int = 0
+
 # UI elements
 @onready var turn_indicator: Label = $UILayer/MainUIContainer/TopBar/TurnIndicator
 @onready var relic_status: Label = $UILayer/MainUIContainer/TopBar/RelicStatus
@@ -79,34 +83,53 @@ func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1
 func select_tile(coords: Vector2i) -> void:
     selected_tile = coords
 
-    # Check if clicking on a unit
-    for unit: Unit in get_tree().get_nodes_in_group("units"):
-        if unit.grid_position == coords:
-            # Only allow selecting units belonging to current player
-            if unit.conflict_side == current_player:
-                select_unit(unit)
-            else:
-                print("Cannot select opponent's unit during your turn")
-            return
-
-    # If we have a selected unit, try to move it
+    # If we have a selected unit
     if selected_unit:
         var unit_coords = selected_unit.grid_position
-        print("Unit from", unit_coords)
-        print("walks to", coords)
-        var reachable = get_reachable_tiles(unit_coords, selected_unit.movement_left)
-        if reachable.has(coords):
-            move_unit(selected_unit, coords)
+
+        # First check if clicking on an enemy unit for attack
+        var enemy_unit_at_tile: Unit = null
+        for unit: Unit in get_tree().get_nodes_in_group("units"):
+            if unit.grid_position == coords and unit.conflict_side != current_player:
+                enemy_unit_at_tile = unit
+                break
+
+        if enemy_unit_at_tile and _are_tiles_adjacent(unit_coords, coords):
+            # Attack the enemy unit
+            print("Attacking enemy unit at", coords)
+            selected_unit.attack(enemy_unit_at_tile)
             clear_selection()
             clear_walkable_highlight()
-            # Note: Turn no longer switches automatically after moving
-            # Player must click "End Turn" button to end their turn
+            # Check if enemy unit died
+            if enemy_unit_at_tile.is_dead():
+                _handle_unit_death(enemy_unit_at_tile)
         else:
-            # Clicked on a tile that's not reachable - clear selection
-            print("Tile not reachable")
-            clear_selection()
-            clear_walkable_highlight()
+            # Try to move the unit
+            print("Unit from", unit_coords)
+            print("walks to", coords)
+            var reachable = get_reachable_tiles(unit_coords, selected_unit.movement_left)
+            if reachable.has(coords):
+                move_unit(selected_unit, coords)
+                clear_selection()
+                clear_walkable_highlight()
+                # Note: Turn no longer switches automatically after moving
+                # Player must click "End Turn" button to end their turn
+            else:
+                # Clicked on a tile that's not reachable - clear selection
+                print("Tile not reachable")
+                clear_selection()
+                clear_walkable_highlight()
     else:
+        # No unit selected - check if clicking on a unit to select it
+        for unit: Unit in get_tree().get_nodes_in_group("units"):
+            if unit.grid_position == coords:
+                # Only allow selecting units belonging to current player
+                if unit.conflict_side == current_player:
+                    select_unit(unit)
+                else:
+                    print("Cannot select opponent's unit during your turn")
+                return
+
         # Clicked on empty tile with no unit selected - clear any existing selection
         clear_selection()
         clear_walkable_highlight()
@@ -124,6 +147,9 @@ func highlight_walkable_tiles(unit) -> void:
     var reachable = get_reachable_tiles(starting_coord, unit.movement_left)
     for tile in reachable:
         highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+
+    # Also highlight attackable enemy units
+    _highlight_attackable_enemies(unit)
 
 
 func select_unit(unit: Unit) -> void:
@@ -218,10 +244,34 @@ func _switch_player_turn() -> void:
 
 
 func _reset_player_unit_movements() -> void:
-    # Reset movement_left for all units belonging to current player
+    # Reset movement and attack status for all units belonging to current player
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         if unit.conflict_side == current_player:
-            unit.reset_movement()
+            unit.reset_turn()
+
+
+func _are_tiles_adjacent(tile1: Vector2i, tile2: Vector2i) -> bool:
+    # Check if two tiles are adjacent (neighbors) on the hex grid
+    var neighbors = terrain_layer.get_surrounding_cells(tile1)
+    return neighbors.has(tile2)
+
+
+func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
+    # Highlight enemy units that can be attacked by the selected unit
+    var attacker_coords = attacking_unit.grid_position
+
+    # Get all adjacent tiles
+    var adjacent_tiles = terrain_layer.get_surrounding_cells(attacker_coords)
+
+    for tile in adjacent_tiles:
+        # Check if tile contains an enemy unit
+        for unit: Unit in get_tree().get_nodes_in_group("units"):
+            if unit.grid_position == tile and unit.conflict_side != current_player:
+                # This is an attackable enemy unit
+                # Use a different tile atlas coordinate for attack highlights
+                # For now, use the same highlight but we could use Vector2i(1, 0) if we had multiple tiles
+                highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+                break
 
 
 func _update_turn_indicator() -> void:
@@ -240,11 +290,36 @@ func _update_relic_status() -> void:
     relic_status.text = "Relic: Not Active"
 
 
+func _handle_unit_death(unit: Unit) -> void:
+    # Remove unit from the board
+    print("Unit died at", unit.grid_position)
+
+    # Free the obstacle
+    obstacles[unit.grid_position] = false
+
+    # Remove the unit node from the scene
+    unit.queue_free()
+
+    # Increment revive count for the player who lost the unit
+    if unit.conflict_side == 1:
+        blue_revive_count += 1  # Blue player killed a red unit
+        print("Blue player gets a revive token. Total:", blue_revive_count)
+    else:
+        red_revive_count += 1  # Red player killed a blue unit
+        print("Red player gets a revive token. Total:", red_revive_count)
+
+    # Update revive UI
+    _update_revive_ui()
+
+
 func _update_revive_ui() -> void:
-    # Placeholder for revive UI updates
-    # This will be implemented when revive mechanics are added
-    revive_button.disabled = true
-    revive_count.text = "Revives: 0"
+    # Update revive UI based on current player
+    if current_player == 1:
+        revive_count.text = "Revives: " + str(red_revive_count)
+        revive_button.disabled = (red_revive_count <= 0)
+    else:
+        revive_count.text = "Revives: " + str(blue_revive_count)
+        revive_button.disabled = (blue_revive_count <= 0)
 
 
 func _on_end_turn_button_pressed() -> void:
