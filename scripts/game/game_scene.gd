@@ -26,6 +26,7 @@ var current_player: int = 1  # 1 = Red player (bottom), 2 = Blue player (top)
 # UI elements
 @onready var turn_indicator: Label = $UILayer/MainUIContainer/TopBar/TurnIndicator
 @onready var relic_status: Label = $UILayer/MainUIContainer/TopBar/RelicStatus
+@onready var end_turn_button: Button = $UILayer/MainUIContainer/BottomBar/EndTurnButton
 @onready var revive_button: Button = $UILayer/MainUIContainer/BottomBar/ReviveButton
 @onready var revive_count: Label = $UILayer/MainUIContainer/BottomBar/ReviveCount
 
@@ -47,6 +48,12 @@ func _ready() -> void:
     _update_turn_indicator()
     _update_relic_status()
     _update_revive_ui()
+
+    # Connect End Turn button signal
+    end_turn_button.pressed.connect(_on_end_turn_button_pressed)
+
+    # Initialize movements for starting player (Red)
+    _reset_player_unit_movements()
 
 
 func _is_walkable(coords: Vector2i) -> bool:
@@ -87,13 +94,13 @@ func select_tile(coords: Vector2i) -> void:
         var unit_coords = selected_unit.grid_position
         print("Unit from", unit_coords)
         print("walks to", coords)
-        var reachable = get_reachable_tiles(unit_coords, selected_unit.speed)
+        var reachable = get_reachable_tiles(unit_coords, selected_unit.movement_left)
         if reachable.has(coords):
             move_unit(selected_unit, coords)
             clear_selection()
             clear_walkable_highlight()
-            # Switch to next player's turn after moving
-            _switch_player_turn()
+            # Note: Turn no longer switches automatically after moving
+            # Player must click "End Turn" button to end their turn
         else:
             # Clicked on a tile that's not reachable - clear selection
             print("Tile not reachable")
@@ -114,7 +121,7 @@ func highlight_walkable_tiles(unit) -> void:
     var starting_coord = unit.grid_position
     clear_walkable_highlight()
 
-    var reachable = get_reachable_tiles(starting_coord, unit.speed)
+    var reachable = get_reachable_tiles(starting_coord, unit.movement_left)
     for tile in reachable:
         highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
 
@@ -175,11 +182,23 @@ func get_reachable_tiles(start: Vector2i, max_distance: int) -> Array[Vector2i]:
     return reachable
 
 
-func move_unit(unit, target_cell) -> void:
-    obstacles[unit.grid_position] = false
-    unit.grid_position = target_cell
-    unit.global_position = terrain_layer.to_global(terrain_layer.map_to_local(target_cell))
-    obstacles[target_cell] = true
+func move_unit(unit: Unit, target_cell) -> void:
+    # Calculate movement cost (1 per tile for now)
+    var movement_cost: int = 1
+
+    # Check if unit has enough movement left
+    if unit.movement_left >= movement_cost:
+        # Update obstacles
+        obstacles[unit.grid_position] = false
+        unit.grid_position = target_cell
+        unit.global_position = terrain_layer.to_global(terrain_layer.map_to_local(target_cell))
+        obstacles[target_cell] = true
+
+        # Decrement movement left
+        unit.movement_left -= movement_cost
+        print("Unit moved. Movement left:", unit.movement_left)
+    else:
+        print("Unit doesn't have enough movement left")
 
 
 func _switch_player_turn() -> void:
@@ -190,8 +209,19 @@ func _switch_player_turn() -> void:
     else:
         current_player = 1
         print("Now it's Red player's turn")
+
+    # Reset movement for all units of the new current player
+    _reset_player_unit_movements()
+
     # Update the UI
     _update_turn_indicator()
+
+
+func _reset_player_unit_movements() -> void:
+    # Reset movement_left for all units belonging to current player
+    for unit: Unit in get_tree().get_nodes_in_group("units"):
+        if unit.conflict_side == current_player:
+            unit.reset_movement()
 
 
 func _update_turn_indicator() -> void:
@@ -215,3 +245,9 @@ func _update_revive_ui() -> void:
     # This will be implemented when revive mechanics are added
     revive_button.disabled = true
     revive_count.text = "Revives: 0"
+
+
+func _on_end_turn_button_pressed() -> void:
+    # End current player's turn and switch to other player
+    print("Ending turn for player", current_player)
+    _switch_player_turn()

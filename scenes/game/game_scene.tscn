@@ -80,6 +80,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 8
 
+[node name="EndTurnButton" type="Button" parent="UILayer/MainUIContainer/BottomBar"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "End Turn"
+
 [node name="ReviveButton" type="Button" parent="UILayer/MainUIContainer/BottomBar"]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
