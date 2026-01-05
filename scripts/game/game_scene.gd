@@ -24,7 +24,10 @@ var selected_unit: Unit
 var current_player: int = 1  # 1 = Red player (bottom), 2 = Blue player (top)
 
 # UI elements
-@onready var turn_label: Label
+@onready var turn_indicator: Label = $UILayer/MainUIContainer/TopBar/TurnIndicator
+@onready var relic_status: Label = $UILayer/MainUIContainer/TopBar/RelicStatus
+@onready var revive_button: Button = $UILayer/MainUIContainer/BottomBar/ReviveButton
+@onready var revive_count: Label = $UILayer/MainUIContainer/BottomBar/ReviveCount
 
 
 
@@ -40,9 +43,10 @@ func _ready() -> void:
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
 
-    # Create turn indicator UI
-    _create_turn_indicator()
+    # Initialize UI
     _update_turn_indicator()
+    _update_relic_status()
+    _update_revive_ui()
 
 
 func _is_walkable(coords: Vector2i) -> bool:
@@ -190,23 +194,24 @@ func _switch_player_turn() -> void:
     _update_turn_indicator()
 
 
-func _create_turn_indicator() -> void:
-    # Create a simple label to show current turn
-    turn_label = Label.new()
-    turn_label.name = "TurnLabel"
-    turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    turn_label.size = Vector2(200, 50)
-    turn_label.position = Vector2(10, 10)
-    turn_label.add_theme_font_size_override("font_size", 24)
-    add_child(turn_label)
-
-
 func _update_turn_indicator() -> void:
-    # Update the label text based on current player
+    # Update the turn indicator label based on current player
     if current_player == 1:
-        turn_label.text = "Red Player's Turn"
-        turn_label.add_theme_color_override("font_color", Color.RED)
+        turn_indicator.text = "Red Player's Turn"
+        turn_indicator.add_theme_color_override("font_color", Color.RED)
     else:
-        turn_label.text = "Blue Player's Turn"
-        turn_label.add_theme_color_override("font_color", Color.BLUE)
+        turn_indicator.text = "Blue Player's Turn"
+        turn_indicator.add_theme_color_override("font_color", Color.BLUE)
+
+
+func _update_relic_status() -> void:
+    # Placeholder for relic status updates
+    # This will be implemented when relic mechanics are added
+    relic_status.text = "Relic: Not Active"
+
+
+func _update_revive_ui() -> void:
+    # Placeholder for revive UI updates
+    # This will be implemented when revive mechanics are added
+    revive_button.disabled = true
+    revive_count.text = "Revives: 0"

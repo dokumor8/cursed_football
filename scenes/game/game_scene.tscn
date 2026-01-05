@@ -35,3 +35,69 @@ tile_set = SubResource("TileSet_mixcd")
 
 [node name="HighlightLayer" type="TileMapLayer" parent="."]
 tile_set = SubResource("TileSet_mj2jn")
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+
+[node name="MainUIContainer" type="MarginContainer" parent="UILayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+
+[node name="TopBar" type="HBoxContainer" parent="UILayer/MainUIContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="TurnIndicator" type="Label" parent="UILayer/MainUIContainer/TopBar"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Red Player's Turn"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TopSpacer" type="Control" parent="UILayer/MainUIContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="RelicStatus" type="Label" parent="UILayer/MainUIContainer/TopBar"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Relic: Not Active"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BottomBar" type="HBoxContainer" parent="UILayer/MainUIContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 8
+
+[node name="ReviveButton" type="Button" parent="UILayer/MainUIContainer/BottomBar"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+disabled = true
+text = "Revive Unit"
+
+[node name="ReviveCount" type="Label" parent="UILayer/MainUIContainer/BottomBar"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Revives: 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BottomSpacer" type="Control" parent="UILayer/MainUIContainer/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
