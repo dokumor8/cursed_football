@@ -4,8 +4,8 @@ extends Node2D
 @onready var highlight_layer: TileMapLayer = $HighlightLayer
 var obstacles: Dictionary = {}
 
-var UnitScene: PackedScene = preload("res://unit.tscn")
-var UnitSelectionScene: PackedScene = preload("res://unit_selection.tscn")
+var UnitScene: PackedScene = preload("res://scenes/game/unit.tscn")
+var UnitSelectionScene: PackedScene = preload("res://scenes/game/unit_selection.tscn")
 var unit_selection: UnitSelection
 
 
@@ -33,11 +33,6 @@ func _ready() -> void:
         _spawn_unit_at_tile(UnitScene, location, 1)
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
-
-
-
-
-
 
 
 func _is_walkable(coords: Vector2i) -> bool:
