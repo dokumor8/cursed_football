@@ -14,20 +14,13 @@ var home_location_1 = Vector2i(4, 9)
 var start_locations_2 = [Vector2i(3, 3), Vector2i(4, 4), Vector2i(5, 3)]
 var home_location_2 = Vector2i(4, 3)
 
+var relic_timer: int = 0
+var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]
+
 var selected_tile: Vector2i
 var selected_unit: Unit
 
-var astar: AStar2D
-var coord_to_id: Dictionary = {}
 
-const HEX_NEIGHBORS = [
-    TileSet.CELL_NEIGHBOR_BOTTOM_SIDE,
-    TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE,
-    TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_SIDE,
-    TileSet.CELL_NEIGHBOR_LEFT_SIDE,
-    TileSet.CELL_NEIGHBOR_TOP_LEFT_SIDE,
-    TileSet.CELL_NEIGHBOR_TOP_RIGHT_SIDE
-]
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -41,38 +34,10 @@ func _ready() -> void:
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
 
-    _ready_grid()
-
-
-func get_tile_path(start_coords: Vector2i, end_coords: Vector2i) -> PackedVector2Array:
-    var sid = coord_to_id.get(start_coords, -1)
-    var eid = coord_to_id.get(end_coords, -1)
-    if sid == -1 or eid == -1: return []
-    return astar.get_point_path(sid, eid)
 
 
 
-func _ready_grid():
-    astar = AStar2D.new()
-    var used_cells = terrain_layer.get_used_cells()
-    var id_counter = 0
-    
-    # Add walkable points
-    for coords in used_cells:
-        if not _is_walkable(coords): continue
-        var center = terrain_layer.map_to_local(coords)
-        astar.add_point(id_counter, center)
-        coord_to_id[coords] = id_counter
-        id_counter += 1
-    
-    # Connect neighbors
-    for coords in coord_to_id.keys():
-        var id = coord_to_id[coords]
-        for dir in HEX_NEIGHBORS:
-            var ncoords = terrain_layer.get_neighbor_cell(coords, dir)
-            if ncoords in coord_to_id:
-                var nid = coord_to_id[ncoords]
-                astar.connect_points(id, nid, true)
+
 
 
 func _is_walkable(coords: Vector2i) -> bool:
