@@ -6,7 +6,11 @@ var obstacles: Dictionary = {}
 
 var UnitScene: PackedScene = preload("res://scenes/game/unit.tscn")
 var UnitSelectionScene: PackedScene = preload("res://scenes/game/unit_selection.tscn")
+var RelicScene: PackedScene = preload("res://scenes/game/relic.tscn")
 var unit_selection: UnitSelection
+var relic_instance: Node2D
+var relic_position: Vector2i = Vector2i(4, 6)  # Center of map
+var relic_holder: Unit = null  # Which unit is holding the relic
 
 
 var start_locations_1 = [Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8)]
@@ -48,6 +52,9 @@ func _ready() -> void:
     for location in start_locations_2:
         _spawn_unit_at_tile(UnitScene, location, 2)
 
+    # Spawn relic at center of map
+    _spawn_relic_at_tile(relic_position)
+
     # Initialize UI
     _update_turn_indicator()
     _update_relic_status()
@@ -72,12 +79,68 @@ func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1
     var unit = spawning_scene.instantiate()
     unit.conflict_side = side
     add_child(unit)
+    unit.add_to_group("units")  # Add to units group for easy finding
     unit.grid_position = grid_pos
     obstacles[grid_pos] = true
-    
+
     var local_pos = terrain_layer.map_to_local(grid_pos)
     var global_pos = terrain_layer.to_global(local_pos)
     unit.global_position = global_pos
+
+
+func _spawn_relic_at_tile(grid_pos: Vector2i):
+    relic_instance = RelicScene.instantiate()
+    add_child(relic_instance)
+    relic_position = grid_pos
+
+    var local_pos = terrain_layer.map_to_local(grid_pos)
+    var global_pos = terrain_layer.to_global(local_pos)
+    relic_instance.global_position = global_pos
+
+
+func _pickup_relic(unit: Unit) -> void:
+    # Unit picks up the relic
+    unit.become_relic_holder()
+    relic_holder = unit
+
+    # Hide the relic sprite
+    if relic_instance:
+        relic_instance.queue_free()
+        relic_instance = null
+
+    # Update relic status UI
+    _update_relic_status()
+
+    # Apply attack penalty (like attacking)
+    unit.has_attacked_this_turn = true
+    unit.movement_left = 0
+    print("Relic picked up by unit at", unit.grid_position)
+
+
+func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
+    # Safety checks
+    if new_holder == null:
+        print("ERROR: new_holder is null in _steal_relic!")
+        return
+
+    if previous_holder == null:
+        print("ERROR: previous_holder is null in _steal_relic!")
+        return
+
+    if new_holder == previous_holder:
+        print("ERROR: new_holder == previous_holder in _steal_relic!")
+        return
+
+    # Previous holder drops the relic
+    previous_holder.drop_relic()
+
+    # New holder takes the relic
+    new_holder.transfer_relic_from(previous_holder)
+    relic_holder = new_holder
+
+    # Update relic status UI
+    _update_relic_status()
+    print("Relic stolen by unit at", new_holder.grid_position)
 
 
 func select_tile(coords: Vector2i) -> void:
@@ -87,7 +150,16 @@ func select_tile(coords: Vector2i) -> void:
     if selected_unit:
         var unit_coords = selected_unit.grid_position
 
-        # First check if clicking on an enemy unit for attack
+        # First check if clicking on the relic for pickup
+        if coords == relic_position and relic_holder == null and _are_tiles_adjacent(unit_coords, coords):
+            # Pick up the relic
+            print("Picking up relic at", coords)
+            _pickup_relic(selected_unit)
+            clear_selection()
+            clear_walkable_highlight()
+            return
+
+        # Then check if clicking on an enemy unit for attack
         var enemy_unit_at_tile: Unit = null
         for unit: Unit in get_tree().get_nodes_in_group("units"):
             if unit.grid_position == coords and unit.conflict_side != current_player:
@@ -98,10 +170,20 @@ func select_tile(coords: Vector2i) -> void:
             # Attack the enemy unit
             print("Attacking enemy unit at", coords)
             selected_unit.attack(enemy_unit_at_tile)
+
+            # Save reference to attacker before clearing selection
+            var attacker: Unit = selected_unit
+
             clear_selection()
             clear_walkable_highlight()
+
             # Check if enemy unit died
             if enemy_unit_at_tile.is_dead():
+                # Check if the dead unit was holding the relic
+                if relic_holder == enemy_unit_at_tile:
+                    # Steal the relic - attacker becomes new relic holder
+                    _steal_relic(attacker, enemy_unit_at_tile)
+
                 _handle_unit_death(enemy_unit_at_tile)
         else:
             # Try to move the unit
@@ -228,11 +310,16 @@ func move_unit(unit: Unit, target_cell) -> void:
 
 
 func _switch_player_turn() -> void:
+
     # Switch to the other player
     if current_player == 1:
         current_player = 2
         print("Now it's Blue player's turn")
     else:
+        # Increment relic timer for relic holder (if any, once per round)
+        if relic_holder:
+            relic_holder.increment_relic_timer()
+            print("Relic timer incremented to:", relic_holder.relic_timer)
         current_player = 1
         print("Now it's Red player's turn")
 
@@ -241,6 +328,7 @@ func _switch_player_turn() -> void:
 
     # Update the UI
     _update_turn_indicator()
+    _update_relic_status()
 
 
 func _reset_player_unit_movements() -> void:
@@ -257,7 +345,7 @@ func _are_tiles_adjacent(tile1: Vector2i, tile2: Vector2i) -> bool:
 
 
 func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
-    # Highlight enemy units that can be attacked by the selected unit
+    # Highlight enemy units that can be attacked by the selected unit AND relic if it can be picked up
     var attacker_coords = attacking_unit.grid_position
 
     # Get all adjacent tiles
@@ -273,6 +361,11 @@ func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
                 highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
                 break
 
+        # Also check if tile contains the relic (and relic is not held by anyone)
+        if tile == relic_position and relic_holder == null:
+            # This is a pickupable relic
+            highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+
 
 func _update_turn_indicator() -> void:
     # Update the turn indicator label based on current player
@@ -285,9 +378,13 @@ func _update_turn_indicator() -> void:
 
 
 func _update_relic_status() -> void:
-    # Placeholder for relic status updates
-    # This will be implemented when relic mechanics are added
-    relic_status.text = "Relic: Not Active"
+    if relic_holder:
+        var player_name = "Red" if relic_holder.conflict_side == 1 else "Blue"
+        relic_status.text = "Relic: Held by " + player_name + " (Timer: " + str(relic_holder.relic_timer) + ")"
+        relic_status.add_theme_color_override("font_color", Color.RED if relic_holder.conflict_side == 1 else Color.BLUE)
+    else:
+        relic_status.text = "Relic: On ground at " + str(relic_position)
+        relic_status.add_theme_color_override("font_color", Color.WHITE)
 
 
 func _handle_unit_death(unit: Unit) -> void:
