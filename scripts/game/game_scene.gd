@@ -22,6 +22,7 @@ var home_location_2 = Vector2i(4, 3)
 var is_revival_mode: bool = false
 var revival_highlight_atlas: Vector2i = Vector2i(1, 0)  # Different tile for revival highlight
 var attack_highlight_atlas: Vector2i = Vector2i(2, 0)  # Different tile for attack highlight
+var goal_highlight_atlas: Vector2i = Vector2i(3, 0)  # Different tile for goal highlight
 
 var relic_timer: int = 0
 var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]
@@ -42,6 +43,7 @@ var blue_revive_count: int = 0
 @onready var end_turn_button: Button = $UILayer/MainUIContainer/BottomBar/EndTurnButton
 @onready var revive_button: Button = $UILayer/MainUIContainer/BottomBar/ReviveButton
 @onready var revive_count: Label = $UILayer/MainUIContainer/BottomBar/ReviveCount
+@onready var victory_message: Label = $UILayer/MainUIContainer/VictoryMessage
 
 
 
@@ -64,6 +66,9 @@ func _ready() -> void:
     _update_turn_indicator()
     _update_relic_status()
     _update_revive_ui()
+
+    # Highlight goal tiles
+    _highlight_goal_tiles()
 
     # Connect End Turn button signal
     end_turn_button.pressed.connect(_on_end_turn_button_pressed)
@@ -110,8 +115,8 @@ func _spawn_relic_at_tile(grid_pos: Vector2i):
 
 
 func _pickup_relic(unit: Unit) -> void:
-    # Unit picks up the relic
-    unit.become_relic_holder()
+    # Unit picks up the relic with current global timer
+    unit.become_relic_holder(relic_timer)
     relic_holder = unit
 
     # Remove relic from obstacles (it's now carried by unit)
@@ -128,7 +133,7 @@ func _pickup_relic(unit: Unit) -> void:
     # Apply attack penalty (like attacking)
     unit.has_attacked_this_turn = true
     unit.movement_left = 0
-    print("Relic picked up by unit at", unit.grid_position)
+    print("Relic picked up by unit at", unit.grid_position, "with global timer:", relic_timer)
 
 
 func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
@@ -148,13 +153,13 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
     # Previous holder drops the relic
     previous_holder.drop_relic()
 
-    # New holder takes the relic
-    new_holder.transfer_relic_from(previous_holder)
+    # New holder takes the relic with current global timer
+    new_holder.transfer_relic(relic_timer)
     relic_holder = new_holder
 
     # Update relic status UI
     _update_relic_status()
-    print("Relic stolen by unit at", new_holder.grid_position)
+    print("Relic stolen by unit at", new_holder.grid_position, "with global timer:", relic_timer)
 
 
 func select_tile(coords: Vector2i) -> void:
@@ -208,9 +213,11 @@ func select_tile(coords: Vector2i) -> void:
             # Try to move the unit
             print("Unit from", unit_coords)
             print("walks to", coords)
-            var reachable = get_reachable_tiles(unit_coords, selected_unit.movement_left)
-            if reachable.has(coords):
-                move_unit(selected_unit, coords)
+            var reachable_data = get_reachable_tiles(unit_coords, selected_unit.movement_left)
+            var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
+            if reachable_tiles.has(coords):
+                var movement_cost: int = reachable_data["distances"][coords]
+                move_unit(selected_unit, coords, movement_cost)
                 clear_selection()
                 clear_walkable_highlight()
                 # Note: Turn no longer switches automatically after moving
@@ -245,8 +252,9 @@ func highlight_walkable_tiles(unit) -> void:
     var starting_coord = unit.grid_position
     clear_walkable_highlight()
 
-    var reachable = get_reachable_tiles(starting_coord, unit.movement_left)
-    for tile in reachable:
+    var reachable_data = get_reachable_tiles(starting_coord, unit.movement_left)
+    var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
+    for tile in reachable_tiles:
         highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
 
     # Also highlight attackable enemy units
@@ -286,33 +294,31 @@ func clear_selection():
     selected_unit = null
 
 
-func get_reachable_tiles(start: Vector2i, max_distance: int) -> Array[Vector2i]:
+func get_reachable_tiles(start: Vector2i, max_distance: int) -> Dictionary:
+    # Returns a dictionary with "tiles" (array of reachable tiles) and "distances" (tile -> distance)
     var reachable: Array[Vector2i] = []
     var queue: Array[Vector2i] = [start]
     var distances: Dictionary = {start: 0}
     var visited: Dictionary = {start: true}
-    
+
     while not queue.is_empty():
         var current = queue.pop_front()
         var dist = distances[current]
         if dist > max_distance:
             continue
         reachable.append(current)
-        
+
         for neighbor in terrain_layer.get_surrounding_cells(current):
             if neighbor == Vector2i(-1, -1) or visited.has(neighbor) or not _is_walkable(neighbor):
                 continue
             visited[neighbor] = true
             distances[neighbor] = dist + 1
             queue.append(neighbor)
-    
-    return reachable
+
+    return {"tiles": reachable, "distances": distances}
 
 
-func move_unit(unit: Unit, target_cell) -> void:
-    # Calculate movement cost (1 per tile for now)
-    var movement_cost: int = 1
-
+func move_unit(unit: Unit, target_cell, movement_cost: int = 1) -> void:
     # Check if unit has enough movement left
     if unit.movement_left >= movement_cost:
         # Update obstacles
@@ -324,8 +330,63 @@ func move_unit(unit: Unit, target_cell) -> void:
         # Decrement movement left
         unit.movement_left -= movement_cost
         print("Unit moved. Movement left:", unit.movement_left)
+
+        # Check for goal scoring (relic holder reaching opponent's goal)
+        _check_goal_scoring(unit, target_cell)
     else:
         print("Unit doesn't have enough movement left")
+
+
+func _check_goal_scoring(unit: Unit, target_cell: Vector2i) -> void:
+    # Check if unit is a relic holder
+    if not unit.is_relic_holder:
+        return
+
+    # Check if relic holder reached opponent's goal
+    if unit.conflict_side == 1:  # Red player
+        if target_cell == home_location_2:  # Blue player's goal
+            _handle_victory(1)  # Red player wins
+    else:  # Blue player (conflict_side == 2)
+        if target_cell == home_location_1:  # Red player's goal
+            _handle_victory(2)  # Blue player wins
+
+
+func _handle_victory(winning_player: int) -> void:
+    # Handle victory condition - game ends immediately
+    var player_name = "Red" if winning_player == 1 else "Blue"
+    var player_color = Color.RED if winning_player == 1 else Color.BLUE
+
+    print("VICTORY! Player ", player_name, " wins!")
+
+    # Disable input to prevent further gameplay
+    set_process_unhandled_input(false)
+
+    # Disable UI buttons
+    end_turn_button.disabled = true
+    revive_button.disabled = true
+
+    # Show victory message (we'll implement UI in next step)
+    _show_victory_message(player_name, player_color)
+
+
+func _show_victory_message(player_name: String, player_color: Color) -> void:
+    # Create and show victory message
+    if not victory_message:
+        # Create victory message label dynamically
+        victory_message = Label.new()
+        victory_message.name = "VictoryMessage"
+        victory_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        victory_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        victory_message.size = Vector2(800, 100)
+        victory_message.position = Vector2(400, 300)  # Center of screen (assuming 800x600)
+        $UILayer/MainUIContainer.add_child(victory_message)
+        print("Created victory message label dynamically")
+
+    victory_message.text = player_name + " Player Wins!"
+    victory_message.add_theme_color_override("font_color", player_color)
+    victory_message.add_theme_font_size_override("font_size", 48)
+    victory_message.visible = true
+    print("Victory message shown for", player_name, "player")
 
 
 func _switch_player_turn() -> void:
@@ -335,10 +396,12 @@ func _switch_player_turn() -> void:
         current_player = 2
         print("Now it's Blue player's turn")
     else:
-        # Increment relic timer for relic holder (if any, once per round)
+        # Increment global relic timer once per round (after Blue player's turn)
         if relic_holder:
-            relic_holder.increment_relic_timer()
-            print("Relic timer incremented to:", relic_holder.relic_timer)
+            relic_timer += 1
+            # Update relic holder's effects with new timer value
+            relic_holder.apply_relic_effects(relic_timer)
+            print("Global relic timer incremented to:", relic_timer)
         current_player = 1
         print("Now it's Red player's turn")
 
@@ -400,6 +463,13 @@ func _highlight_revival_tiles() -> void:
         if _is_walkable(tile):  # Check if tile is not occupied
             highlight_layer.set_cell(tile, 0, revival_highlight_atlas)
             print("Highlighted revival tile at", tile)
+
+
+func _highlight_goal_tiles() -> void:
+    # Highlight both goal tiles
+    highlight_layer.set_cell(home_location_1, 0, goal_highlight_atlas)
+    highlight_layer.set_cell(home_location_2, 0, goal_highlight_atlas)
+    print("Goal tiles highlighted at", home_location_1, "and", home_location_2)
 
 
 func _handle_revival_click(coords: Vector2i) -> void:
@@ -469,10 +539,10 @@ func _update_turn_indicator() -> void:
 func _update_relic_status() -> void:
     if relic_holder:
         var player_name = "Red" if relic_holder.conflict_side == 1 else "Blue"
-        relic_status.text = "Relic: Held by " + player_name + " (Timer: " + str(relic_holder.relic_timer) + ")"
+        relic_status.text = "Relic: Held by " + player_name + " (Global Timer: " + str(relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.RED if relic_holder.conflict_side == 1 else Color.BLUE)
     else:
-        relic_status.text = "Relic: On ground at " + str(relic_position)
+        relic_status.text = "Relic: On ground at " + str(relic_position) + " (Timer: " + str(relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.WHITE)
 
 

@@ -13,7 +13,6 @@ var has_attacked_this_turn: bool = false
 
 # Relic stats
 var is_relic_holder: bool = false
-var relic_timer: int = 0  # How many turns unit has held the relic
 
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var hp_label: Label
@@ -38,7 +37,7 @@ func _ready() -> void:
 func reset_turn() -> void:
     if not is_relic_holder:
         movement_left = speed
-    # Relic holders get their movement from _apply_relic_effects()
+    # Relic holders get their movement from apply_relic_effects() called by game scene
     has_attacked_this_turn = false
 
 # Take damage from an attack
@@ -65,13 +64,13 @@ func attack(target: Unit) -> void:
     elif attack_power <= 0:
         print("Unit cannot attack (attack power is 0)")
 
-# Become a relic holder
-func become_relic_holder() -> void:
+# Become a relic holder (timer passed from game scene)
+func become_relic_holder(timer: int) -> void:
     is_relic_holder = true
-    relic_timer = 0
     _update_relic_sprite()
-    _apply_relic_effects()
-    print("Unit became relic holder")
+    apply_relic_effects(timer)
+    movement_left = 0
+    print("Unit became relic holder with timer:", timer)
 
 # Update sprite based on relic holder status
 func _update_relic_sprite() -> void:
@@ -86,8 +85,8 @@ func _update_relic_sprite() -> void:
         else:
             sprite.texture = preload("res://assets/images/objects/unit_blue.png")
 
-# Apply relic effects based on timer
-func _apply_relic_effects() -> void:
+# Apply relic effects based on global timer
+func apply_relic_effects(timer: int) -> void:
     if not is_relic_holder:
         return
 
@@ -99,7 +98,7 @@ func _apply_relic_effects() -> void:
     # Turn 5: 4 speed, 1 damage (maximum speed)
     # Turn 6+: 4 speed, 2 damage (maximum speed, one-shot attack)
 
-    match relic_timer:
+    match timer:
         0:  # Just picked up - stunned
             movement_left = 0
             attack_power = 0
@@ -119,26 +118,19 @@ func _apply_relic_effects() -> void:
             movement_left = 4
             attack_power = 2
 
-    print("Relic holder effects: speed=", movement_left, ", attack=", attack_power)
+    print("Relic holder effects: timer=", timer, ", speed=", movement_left, ", attack=", attack_power)
 
-# Increment relic timer (called at end of each turn)
-func increment_relic_timer() -> void:
-    if is_relic_holder:
-        relic_timer += 1
-        _apply_relic_effects()
-
-# Transfer relic from another unit (for stealing)
-func transfer_relic_from(previous_holder: Unit) -> void:
+# Transfer relic from another unit (for stealing) - timer passed from game scene
+func transfer_relic(timer: int) -> void:
     is_relic_holder = true
-    relic_timer = previous_holder.relic_timer  # Keep the same timer
     _update_relic_sprite()
-    _apply_relic_effects()
-    print("Relic transferred to unit. Timer:", relic_timer)
+    apply_relic_effects(timer)
+    movement_left = 0
+    print("Relic transferred to unit. Global timer:", timer)
 
 # Drop relic (when unit dies or otherwise loses relic)
 func drop_relic() -> void:
     is_relic_holder = false
-    relic_timer = 0
     _update_relic_sprite()
     # Reset to normal stats
     movement_left = speed
