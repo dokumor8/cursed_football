@@ -22,7 +22,7 @@ var home_location_2 = Vector2i(4, 3)
 var is_revival_mode: bool = false
 var revival_highlight_atlas: Vector2i = Vector2i(1, 0)  # Different tile for revival highlight
 var attack_highlight_atlas: Vector2i = Vector2i(2, 0)  # Different tile for attack highlight
-var goal_highlight_atlas: Vector2i = Vector2i(3, 0)  # Different tile for goal highlight
+var goal_highlight_atlas: Vector2i = Vector2i(0, 1)  # Different tile for goal highlight
 
 var relic_timer: int = 0
 var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]

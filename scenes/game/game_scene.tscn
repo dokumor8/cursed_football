@@ -19,6 +19,11 @@ sources/1 = SubResource("TileSetAtlasSource_v1wow")
 texture = ExtResource("3_v1wow")
 texture_region_size = Vector2i(53, 46)
 0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
 
 [sub_resource type="TileSet" id="TileSet_mj2jn"]
 tile_shape = 3
