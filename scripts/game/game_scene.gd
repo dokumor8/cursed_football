@@ -13,10 +13,15 @@ var relic_position: Vector2i = Vector2i(4, 6)  # Center of map
 var relic_holder: Unit = null  # Which unit is holding the relic
 
 
-var start_locations_1 = [Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8)]
+var start_locations_1: Array[Vector2i] = [Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8)]
 var home_location_1 = Vector2i(4, 9)
-var start_locations_2 = [Vector2i(3, 3), Vector2i(4, 4), Vector2i(5, 3)]
+var start_locations_2: Array[Vector2i] = [Vector2i(3, 3), Vector2i(4, 4), Vector2i(5, 3)]
 var home_location_2 = Vector2i(4, 3)
+
+# Revival system
+var is_revival_mode: bool = false
+var revival_highlight_atlas: Vector2i = Vector2i(1, 0)  # Different tile for revival highlight
+var attack_highlight_atlas: Vector2i = Vector2i(2, 0)  # Different tile for attack highlight
 
 var relic_timer: int = 0
 var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]
@@ -63,6 +68,9 @@ func _ready() -> void:
     # Connect End Turn button signal
     end_turn_button.pressed.connect(_on_end_turn_button_pressed)
 
+    # Connect Revive button signal
+    revive_button.pressed.connect(_on_revive_button_pressed)
+
     # Initialize movements for starting player (Red)
     _reset_player_unit_movements()
 
@@ -93,6 +101,9 @@ func _spawn_relic_at_tile(grid_pos: Vector2i):
     add_child(relic_instance)
     relic_position = grid_pos
 
+    # Make relic tile an obstacle when on ground
+    obstacles[grid_pos] = true
+
     var local_pos = terrain_layer.map_to_local(grid_pos)
     var global_pos = terrain_layer.to_global(local_pos)
     relic_instance.global_position = global_pos
@@ -102,6 +113,9 @@ func _pickup_relic(unit: Unit) -> void:
     # Unit picks up the relic
     unit.become_relic_holder()
     relic_holder = unit
+
+    # Remove relic from obstacles (it's now carried by unit)
+    obstacles[relic_position] = false
 
     # Hide the relic sprite
     if relic_instance:
@@ -145,6 +159,11 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
 
 func select_tile(coords: Vector2i) -> void:
     selected_tile = coords
+
+    # Handle revival mode first
+    if is_revival_mode:
+        _handle_revival_click(coords)
+        return
 
     # If we have a selected unit
     if selected_unit:
@@ -356,15 +375,85 @@ func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
         for unit: Unit in get_tree().get_nodes_in_group("units"):
             if unit.grid_position == tile and unit.conflict_side != current_player:
                 # This is an attackable enemy unit
-                # Use a different tile atlas coordinate for attack highlights
-                # For now, use the same highlight but we could use Vector2i(1, 0) if we had multiple tiles
-                highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+                highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
                 break
 
         # Also check if tile contains the relic (and relic is not held by anyone)
         if tile == relic_position and relic_holder == null:
             # This is a pickupable relic
-            highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+            highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
+
+
+func _highlight_revival_tiles() -> void:
+    # Clear any existing highlights
+    clear_walkable_highlight()
+
+    # Get spawn tiles for current player
+    var spawn_tiles: Array[Vector2i]
+    if current_player == 1:
+        spawn_tiles = start_locations_1
+    else:
+        spawn_tiles = start_locations_2
+
+    # Highlight each spawn tile if it's not occupied
+    for tile in spawn_tiles:
+        if _is_walkable(tile):  # Check if tile is not occupied
+            highlight_layer.set_cell(tile, 0, revival_highlight_atlas)
+            print("Highlighted revival tile at", tile)
+
+
+func _handle_revival_click(coords: Vector2i) -> void:
+    # Check if clicked tile is a valid revival tile
+    var spawn_tiles: Array[Vector2i]
+    if current_player == 1:
+        spawn_tiles = start_locations_1
+    else:
+        spawn_tiles = start_locations_2
+
+    if spawn_tiles.has(coords) and _is_walkable(coords):
+        # Spawn a unit at this tile
+        _revive_unit_at_tile(coords)
+    else:
+        # Clicked outside revival tiles - do nothing (as per spec)
+        print("Clicked outside revival tiles, ignoring")
+
+
+func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
+    # Spawn a unit for current player
+    var unit = UnitScene.instantiate()
+    unit.conflict_side = current_player
+    add_child(unit)
+    unit.add_to_group("units")
+    unit.grid_position = grid_pos
+    obstacles[grid_pos] = true
+
+    # Position the unit
+    var local_pos = terrain_layer.map_to_local(grid_pos)
+    var global_pos = terrain_layer.to_global(local_pos)
+    unit.global_position = global_pos
+
+    # Apply stun effect (like relic holder on turn 1)
+    unit.movement_left = 0  # Can't move this turn
+    unit.has_attacked_this_turn = true  # Can't attack this turn
+    # Note: attack_power is already 1 by default, which is correct for revived units
+
+    print("Revived unit at", grid_pos, "for player", current_player)
+
+    # Decrement revive count
+    if current_player == 1:
+        red_revive_count -= 1
+    else:
+        blue_revive_count -= 1
+
+    # Update UI
+    _update_revive_ui()
+
+    # Exit revival mode
+    is_revival_mode = false
+    clear_walkable_highlight()
+    revive_button.text = "Revive Unit"
+
+    print("Revival complete. Revives left:", red_revive_count if current_player == 1 else blue_revive_count)
 
 
 func _update_turn_indicator() -> void:
@@ -399,11 +488,11 @@ func _handle_unit_death(unit: Unit) -> void:
 
     # Increment revive count for the player who lost the unit
     if unit.conflict_side == 1:
-        blue_revive_count += 1  # Blue player killed a red unit
-        print("Blue player gets a revive token. Total:", blue_revive_count)
-    else:
         red_revive_count += 1  # Red player killed a blue unit
         print("Red player gets a revive token. Total:", red_revive_count)
+    else:
+        blue_revive_count += 1  # Blue player killed a red unit
+        print("Blue player gets a revive token. Total:", blue_revive_count)
 
     # Update revive UI
     _update_revive_ui()
@@ -420,6 +509,37 @@ func _update_revive_ui() -> void:
 
 
 func _on_end_turn_button_pressed() -> void:
+    # Cancel revival mode if active
+    if is_revival_mode:
+        is_revival_mode = false
+        clear_walkable_highlight()
+        revive_button.text = "Revive Unit"
+        print("Revival mode cancelled due to turn end")
+
     # End current player's turn and switch to other player
     print("Ending turn for player", current_player)
     _switch_player_turn()
+    _update_revive_ui()
+
+
+func _on_revive_button_pressed() -> void:
+    # Toggle revival mode
+    if is_revival_mode:
+        # Cancel revival mode
+        is_revival_mode = false
+        clear_walkable_highlight()
+        revive_button.text = "Revive Unit"
+        print("Revival mode cancelled")
+    else:
+        # Enter revival mode if player has revives
+        var available_revives = red_revive_count if current_player == 1 else blue_revive_count
+        if available_revives > 0:
+            is_revival_mode = true
+            revive_button.text = "Cancel revival"
+            # Clear any unit selection when entering revival mode
+            clear_selection()
+            clear_walkable_highlight()
+            _highlight_revival_tiles()
+            print("Entered revival mode")
+        else:
+            print("No revives available")
