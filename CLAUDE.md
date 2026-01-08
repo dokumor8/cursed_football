@@ -8,14 +8,8 @@ This is a **hex-based tactical strategy game** built with **Godot 4.5** (GL Comp
 
 ## Development Commands
 
-### Running the Game
-- **Open in Godot Editor**: Use Godot 4.5 to open the project directory
-- **Play/Test**: Press F5 in Godot Editor or click the "Play" button
-- **Export**: Use Godot's export system (Project → Export → HTML5 for web deployment)
-
-### Testing
-- **Manual Testing**: Run the game and test gameplay mechanics
-- **No automated tests**: This is a Godot game project without a traditional test suite
+### Running and Testing
+The human user manually runs and tests the game.
 
 ### Code Quality
 - **GDScript Formatting**: Use Godot Editor's built-in formatter (Ctrl+Alt+F)
@@ -71,14 +65,13 @@ This is a **hex-based tactical strategy game** built with **Godot 4.5** (GL Comp
 - Turn-based gameplay with "End Turn" button
 - Selection & movement with BFS pathfinding
 - Combat system with adjacency attacks
-- Revive system (UI exists, mechanics pending)
+- Revive system
 - UI/HUD with turn indicator and revive UI
+- Relic Mechanics
+- Goal & scoring
 
 ### ❌ Missing / Planned Features (Phase 2 Focus)
-1. **Relic Mechanics**: Pickup, carrying, speed progression, stealing
-2. **Goal & Scoring**: Goal tiles, win conditions, score tracking
-3. **Revive Implementation**: Actual unit revival on spawn tiles
-4. **Hotseat Polish**: Improved UI feedback, turn timer, game state display
+1. **Hotseat Polish**: Improved UI feedback, turn timer, game state display
 
 ## Important Files
 
@@ -107,9 +100,6 @@ This is a **hex-based tactical strategy game** built with **Godot 4.5** (GL Comp
 ## For Future Development Sessions
 
 When working on this project:
-1. **Always check [PROJECT.md](PROJECT.md)** first for comprehensive context
-2. **Test in Godot Editor** - there's no CLI build/test system
-3. **Focus on Phase 2 features** unless otherwise specified
-4. **Maintain the component-based architecture**
-5. **Keep UI separate** using CanvasLayer system
-6. **Consider browser target** when making technical decisions
+1. If comprehensive contest in needed, check [PROJECT.md](PROJECT.md)
+2. Maintain the component-based architecture
+3. Consider browser target when making technical decisions

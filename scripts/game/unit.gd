@@ -1,14 +1,17 @@
 class_name Unit
 extends Node2D
+
+const GC = preload("res://scripts/config/GameConstants.gd")
+
 @export var conflict_side: int = 1
 @export var grid_position: Vector2i
-@export var speed: int = 2
-var movement_left: int = 2  # How much movement this unit has left this turn
+@export var speed: int = GC.UNIT_SPEED
+var movement_left: int = GC.UNIT_SPEED  # How much movement this unit has left this turn
 
 # Combat stats
-@export var max_hp: int = 2
-var current_hp: int = 2
-@export var attack_power: int = 1  # Damage dealt per attack
+@export var max_hp: int = GC.UNIT_MAX_HP
+var current_hp: int = GC.UNIT_MAX_HP
+@export var attack_power: int = GC.UNIT_ATTACK_POWER  # Damage dealt per attack
 var has_attacked_this_turn: bool = false
 
 # Relic stats
@@ -92,31 +95,35 @@ func apply_relic_effects(timer: int) -> void:
 
     # According to PROJECT.md relic progression:
     # Turn 1: 0 speed, 0 damage (stunned)
-    # Turn 2: 1 speed, 0 damage (slowed, can't attack)
-    # Turn 3: 2 speed, 1 damage (normal)
-    # Turn 4: 3 speed, 1 damage (speed boost)
-    # Turn 5: 4 speed, 1 damage (maximum speed)
-    # Turn 6+: 4 speed, 2 damage (maximum speed, one-shot attack)
+    # Turns 2-3: 1 speed, 0 damage (slowed, can't attack)
+    # Turns 4-5: 2 speed, 1 damage (normal)
+    # Turns 6-7: 3 speed, 1 damage (speed boost)
+    # Turns 8-9: 4 speed, 1 damage (maximum speed)
+    # Turns 10-11: 4 speed, 2 damage (maximum speed, double damage)
+    # Turn 12+: 4 speed, 3 damage (maximum speed, one-shot attack)
 
     match timer:
         0:  # Just picked up - stunned
             movement_left = 0
             attack_power = 0
-        1:  # Turn 2 - slowed, can't attack
+        1, 2:  # Turns 2-3 - slowed, can't attack
             movement_left = 1
             attack_power = 0
-        2:  # Turn 3 - normal
+        3, 4:  # Turns 4-5 - normal
             movement_left = 2
             attack_power = 1
-        3:  # Turn 4 - speed boost
+        5, 6:  # Turns 6-7 - speed boost
             movement_left = 3
             attack_power = 1
-        4:  # Turn 5 - maximum speed
+        7, 8:  # Turns 8-9 - maximum speed
             movement_left = 4
             attack_power = 1
-        _:  # Turn 6+ - maximum speed, one-shot attack
+        9, 10:  # Turns 10-11 - maximum speed, double damage
             movement_left = 4
             attack_power = 2
+        _:  # Turn 12+ - maximum speed, one-shot attack
+            movement_left = 4
+            attack_power = 3
 
     print("Relic holder effects: timer=", timer, ", speed=", movement_left, ", attack=", attack_power)
 
@@ -155,7 +162,7 @@ func _update_hp_label() -> void:
     if hp_label:
         hp_label.text = str(current_hp) + "/" + str(max_hp)
         # Change color based on HP
-        if current_hp <= max_hp / 2:
+        if current_hp <= 2:
             hp_label.add_theme_color_override("font_color", Color.YELLOW)
         if current_hp <= 1:
             hp_label.add_theme_color_override("font_color", Color.RED)

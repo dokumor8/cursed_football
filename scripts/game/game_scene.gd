@@ -1,5 +1,8 @@
 extends Node2D
 
+# Preload GameConstants to access its static members
+const GC = preload("res://scripts/config/GameConstants.gd")
+
 @onready var terrain_layer: TileMapLayer = $TileMapLayer
 @onready var highlight_layer: TileMapLayer = $HighlightLayer
 var obstacles: Dictionary = {}
@@ -9,29 +12,29 @@ var UnitSelectionScene: PackedScene = preload("res://scenes/game/unit_selection.
 var RelicScene: PackedScene = preload("res://scenes/game/relic.tscn")
 var unit_selection: UnitSelection
 var relic_instance: Node2D
-var relic_position: Vector2i = Vector2i(4, 6)  # Center of map
+var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION  # Center of map
 var relic_holder: Unit = null  # Which unit is holding the relic
 
 
-var start_locations_1: Array[Vector2i] = [Vector2i(3, 8), Vector2i(4, 8), Vector2i(5, 8)]
-var home_location_1 = Vector2i(4, 9)
-var start_locations_2: Array[Vector2i] = [Vector2i(3, 3), Vector2i(4, 4), Vector2i(5, 3)]
-var home_location_2 = Vector2i(4, 3)
+var start_locations_1: Array[Vector2i] = GC.RED_SPAWN_POSITIONS
+var home_location_1 = GC.RED_GOAL_POSITION
+var start_locations_2: Array[Vector2i] = GC.BLUE_SPAWN_POSITIONS
+var home_location_2 = GC.BLUE_GOAL_POSITION
 
 # Revival system
 var is_revival_mode: bool = false
-var revival_highlight_atlas: Vector2i = Vector2i(1, 0)  # Different tile for revival highlight
-var attack_highlight_atlas: Vector2i = Vector2i(2, 0)  # Different tile for attack highlight
-var goal_highlight_atlas: Vector2i = Vector2i(0, 1)  # Different tile for goal highlight
+var revival_highlight_atlas: Vector2i = GC.REVIVAL_HIGHLIGHT_ATLAS  # Different tile for revival highlight
+var attack_highlight_atlas: Vector2i = GC.ATTACK_HIGHLIGHT_ATLAS  # Different tile for attack highlight
+var goal_highlight_atlas: Vector2i = GC.GOAL_HIGHLIGHT_ATLAS  # Different tile for goal highlight
 
 var relic_timer: int = 0
-var relic_speed_effect: Array[int] = [-2, -1, 0, 1, 2]
+var relic_speed_effect: Array[int] = GC.RELIC_SPEED_EFFECTS
 
 var selected_tile: Vector2i
 var selected_unit: Unit
 
 # Turn tracking
-var current_player: int = 1  # 1 = Red player (bottom), 2 = Blue player (top)
+var current_player: int = GC.PLAYER_RED  # Red player starts (bottom)
 
 # Revive tracking
 var red_revive_count: int = 0
@@ -45,6 +48,10 @@ var blue_revive_count: int = 0
 @onready var revive_count: Label = $UILayer/MainUIContainer/BottomBar/ReviveCount
 @onready var victory_message: Label = $UILayer/MainUIContainer/VictoryMessage
 
+# Game over menu
+var GameOverMenuScene: PackedScene = null
+var game_over_menu: PopupPanel = null
+
 
 
 # Called when the node enters the scene tree for the first time.
@@ -54,10 +61,13 @@ func _ready() -> void:
     unit_selection.visible = false
     add_child(unit_selection)
 
-    for location in start_locations_1:
-        _spawn_unit_at_tile(UnitScene, location, 1)
-    for location in start_locations_2:
-        _spawn_unit_at_tile(UnitScene, location, 2)
+    # Try to load game over menu scene
+    _load_game_over_menu()
+
+    for location in GC.get_spawn_positions(GC.PLAYER_RED):
+        _spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
+    for location in GC.get_spawn_positions(GC.PLAYER_BLUE):
+        _spawn_unit_at_tile(UnitScene, location, GC.PLAYER_BLUE)
 
     # Spawn relic at center of map
     _spawn_relic_at_tile(relic_position)
@@ -343,18 +353,18 @@ func _check_goal_scoring(unit: Unit, target_cell: Vector2i) -> void:
         return
 
     # Check if relic holder reached opponent's goal
-    if unit.conflict_side == 1:  # Red player
-        if target_cell == home_location_2:  # Blue player's goal
-            _handle_victory(1)  # Red player wins
-    else:  # Blue player (conflict_side == 2)
-        if target_cell == home_location_1:  # Red player's goal
-            _handle_victory(2)  # Blue player wins
+    if unit.conflict_side == GC.PLAYER_RED:
+        if target_cell == GC.get_goal_position(GC.PLAYER_BLUE):
+            _handle_victory(GC.PLAYER_RED)
+    else:  # Blue player
+        if target_cell == GC.get_goal_position(GC.PLAYER_RED):
+            _handle_victory(GC.PLAYER_BLUE)
 
 
 func _handle_victory(winning_player: int) -> void:
     # Handle victory condition - game ends immediately
-    var player_name = "Red" if winning_player == 1 else "Blue"
-    var player_color = Color.RED if winning_player == 1 else Color.BLUE
+    var player_name = "Red" if winning_player == GC.PLAYER_RED else "Blue"
+    var player_color = Color.RED if winning_player == GC.PLAYER_RED else Color.BLUE
 
     print("VICTORY! Player ", player_name, " wins!")
 
@@ -365,8 +375,13 @@ func _handle_victory(winning_player: int) -> void:
     end_turn_button.disabled = true
     revive_button.disabled = true
 
-    # Show victory message (we'll implement UI in next step)
-    _show_victory_message(player_name, player_color)
+    # Show victory message - use game over menu if available, otherwise fallback
+    if game_over_menu and game_over_menu.has_method("show_victory"):
+        game_over_menu.show_victory(player_name, player_color)
+        print("Showing game over menu")
+    else:
+        _show_victory_message(player_name, player_color)
+        print("Using fallback victory message")
 
 
 func _show_victory_message(player_name: String, player_color: Color) -> void:
@@ -392,8 +407,8 @@ func _show_victory_message(player_name: String, player_color: Color) -> void:
 func _switch_player_turn() -> void:
 
     # Switch to the other player
-    if current_player == 1:
-        current_player = 2
+    if current_player == GC.PLAYER_RED:
+        current_player = GC.PLAYER_BLUE
         print("Now it's Blue player's turn")
     else:
         # Increment global relic timer once per round (after Blue player's turn)
@@ -402,7 +417,7 @@ func _switch_player_turn() -> void:
             # Update relic holder's effects with new timer value
             relic_holder.apply_relic_effects(relic_timer)
             print("Global relic timer incremented to:", relic_timer)
-        current_player = 1
+        current_player = GC.PLAYER_RED
         print("Now it's Red player's turn")
 
     # Reset movement for all units of the new current player
@@ -452,11 +467,7 @@ func _highlight_revival_tiles() -> void:
     clear_walkable_highlight()
 
     # Get spawn tiles for current player
-    var spawn_tiles: Array[Vector2i]
-    if current_player == 1:
-        spawn_tiles = start_locations_1
-    else:
-        spawn_tiles = start_locations_2
+    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(current_player)
 
     # Highlight each spawn tile if it's not occupied
     for tile in spawn_tiles:
@@ -467,18 +478,14 @@ func _highlight_revival_tiles() -> void:
 
 func _highlight_goal_tiles() -> void:
     # Highlight both goal tiles
-    highlight_layer.set_cell(home_location_1, 0, goal_highlight_atlas)
-    highlight_layer.set_cell(home_location_2, 0, goal_highlight_atlas)
-    print("Goal tiles highlighted at", home_location_1, "and", home_location_2)
+    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_RED), 0, goal_highlight_atlas)
+    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_BLUE), 0, goal_highlight_atlas)
+    print("Goal tiles highlighted at", GC.get_goal_position(GC.PLAYER_RED), "and", GC.get_goal_position(GC.PLAYER_BLUE))
 
 
 func _handle_revival_click(coords: Vector2i) -> void:
     # Check if clicked tile is a valid revival tile
-    var spawn_tiles: Array[Vector2i]
-    if current_player == 1:
-        spawn_tiles = start_locations_1
-    else:
-        spawn_tiles = start_locations_2
+    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(current_player)
 
     if spawn_tiles.has(coords) and _is_walkable(coords):
         # Spawn a unit at this tile
@@ -510,7 +517,7 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     print("Revived unit at", grid_pos, "for player", current_player)
 
     # Decrement revive count
-    if current_player == 1:
+    if current_player == GC.PLAYER_RED:
         red_revive_count -= 1
     else:
         blue_revive_count -= 1
@@ -523,12 +530,12 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     clear_walkable_highlight()
     revive_button.text = "Revive Unit"
 
-    print("Revival complete. Revives left:", red_revive_count if current_player == 1 else blue_revive_count)
+    print("Revival complete. Revives left:", red_revive_count if current_player == GC.PLAYER_RED else blue_revive_count)
 
 
 func _update_turn_indicator() -> void:
     # Update the turn indicator label based on current player
-    if current_player == 1:
+    if current_player == GC.PLAYER_RED:
         turn_indicator.text = "Red Player's Turn"
         turn_indicator.add_theme_color_override("font_color", Color.RED)
     else:
@@ -538,9 +545,9 @@ func _update_turn_indicator() -> void:
 
 func _update_relic_status() -> void:
     if relic_holder:
-        var player_name = "Red" if relic_holder.conflict_side == 1 else "Blue"
+        var player_name = "Red" if relic_holder.conflict_side == GC.PLAYER_RED else "Blue"
         relic_status.text = "Relic: Held by " + player_name + " (Global Timer: " + str(relic_timer) + ")"
-        relic_status.add_theme_color_override("font_color", Color.RED if relic_holder.conflict_side == 1 else Color.BLUE)
+        relic_status.add_theme_color_override("font_color", Color.RED if relic_holder.conflict_side == GC.PLAYER_RED else Color.BLUE)
     else:
         relic_status.text = "Relic: On ground at " + str(relic_position) + " (Timer: " + str(relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.WHITE)
@@ -557,11 +564,11 @@ func _handle_unit_death(unit: Unit) -> void:
     unit.queue_free()
 
     # Increment revive count for the player who lost the unit
-    if unit.conflict_side == 1:
-        red_revive_count += 1  # Red player killed a blue unit
+    if unit.conflict_side == GC.PLAYER_RED:
+        red_revive_count += GC.REVIVE_TOKEN_REWARD  # Red player killed a blue unit
         print("Red player gets a revive token. Total:", red_revive_count)
     else:
-        blue_revive_count += 1  # Blue player killed a red unit
+        blue_revive_count += GC.REVIVE_TOKEN_REWARD  # Blue player killed a red unit
         print("Blue player gets a revive token. Total:", blue_revive_count)
 
     # Update revive UI
@@ -570,7 +577,7 @@ func _handle_unit_death(unit: Unit) -> void:
 
 func _update_revive_ui() -> void:
     # Update revive UI based on current player
-    if current_player == 1:
+    if current_player == GC.PLAYER_RED:
         revive_count.text = "Revives: " + str(red_revive_count)
         revive_button.disabled = (red_revive_count <= 0)
     else:
@@ -602,7 +609,7 @@ func _on_revive_button_pressed() -> void:
         print("Revival mode cancelled")
     else:
         # Enter revival mode if player has revives
-        var available_revives = red_revive_count if current_player == 1 else blue_revive_count
+        var available_revives = red_revive_count if current_player == GC.PLAYER_RED else blue_revive_count
         if available_revives > 0:
             is_revival_mode = true
             revive_button.text = "Cancel revival"
@@ -613,3 +620,19 @@ func _on_revive_button_pressed() -> void:
             print("Entered revival mode")
         else:
             print("No revives available")
+
+func _load_game_over_menu() -> void:
+    # Try to load the game over menu scene
+    if ResourceLoader.exists("res://scenes/ui/game_over_menu.tscn"):
+        GameOverMenuScene = load("res://scenes/ui/game_over_menu.tscn")
+        game_over_menu = GameOverMenuScene.instantiate()
+        add_child(game_over_menu)
+
+        print("Game over menu loaded successfully")
+    else:
+        print("Game over menu scene not found. Using fallback victory message.")
+
+func restart_game() -> void:
+    # Restart the game by reloading the scene
+    print("Restarting game...")
+    get_tree().reload_current_scene()

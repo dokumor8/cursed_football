@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Hex Relic Tactics"
-run/main_scene="uid://eiseghgy1gp4"
+run/main_scene="uid://davmqemkmg1m6"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
 
