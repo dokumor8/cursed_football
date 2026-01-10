@@ -37,4 +37,3 @@ func serialize() -> String:
     }
     var json_string = JSON.stringify(game_state)
     return json_string
-

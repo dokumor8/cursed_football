@@ -2,7 +2,8 @@
 # Central configuration file for game balance and constants
 # Access constants via GameConstants.CONSTANT_NAME
 
-class_name GameConstants
+extends Node2D
+
 
 # Player side constants - use these instead of magic numbers 1 and 2
 var PLAYER_RED: int = 1    # Red player (bottom)
