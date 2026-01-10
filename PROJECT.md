@@ -7,14 +7,17 @@
     - [Field Layout](#field-layout)
     - [Unit Mechanics](#unit-mechanics)
     - [Relic Mechanics (Central Game Mechanic)](#relic-mechanics-central-game-mechanic)
-    - [Turn Structure](#turn-structure)
+    - [Round Structure](#round-structure)
+      - [Turn structure](#turn-structure)
     - [Victory Conditions](#victory-conditions)
     - [Turtling and Snowballing considerations](#turtling-and-snowballing-considerations)
   - [Planned Features \& Development Roadmap](#planned-features--development-roadmap)
-    - [Phase 1: Core Gameplay (COMPLETED ✅)](#phase-1-core-gameplay-completed-)
-    - [Phase 2: Game Completion (Current Focus)](#phase-2-game-completion-current-focus)
+    - [Phase 1: Core Gameplay (COMPLETED)](#phase-1-core-gameplay-completed)
+    - [Phase 2: Game Completion (In progress)](#phase-2-game-completion-in-progress)
     - [Phase 3: Multiplayer \& Polish](#phase-3-multiplayer--polish)
-    - [Phase 4: Advanced Potential Features](#phase-4-advanced-potential-features)
+    - [Phase 4: More Polish](#phase-4-more-polish)
+    - [Phase 5: Advanced Potential Features](#phase-5-advanced-potential-features)
+    - [Phase 6: Another game](#phase-6-another-game)
     - [Technical Goals](#technical-goals)
   - [Technical Architecture](#technical-architecture)
     - [Current Code Structure](#current-code-structure)
@@ -64,39 +67,43 @@ A hex-based tactical game with sport elements:
 [Hex Grid - playing field]
 
 [Player 1 Base]
-   Goal Tile (center of base)
    Three surrounding spawn tiles (for unit respawn)
+   Goal Tile (center of base)
 ```
 
 ### Unit Mechanics
-- **Health**: 2 HP per unit
+- **Health**: 3 HP per unit
 - **Damage**: 1 damage per attack (normal units)
 - **Movement**: 2 tiles per turn (normal units)
 - **Combat**: Adjacent units can attack (range 1)
 - **Respawn**: Units respawn next turn on spawn tiles (no movement that turn)
-  - Prevents permanent unit loss
-  - Encourages aggressive play
 
 ### Relic Mechanics (Central Game Mechanic)
 - Located at center of grid at game start
 - **Relic Holder Effects**:
   - **Speed and Damage Progression**: 
     - Turn 1 after pickup: 0 speed, 0 damage (relic holder is stunned).
-    - Turn 2: 1 speed, 0 damage (relic holder is slowed can can't attack).
-    - Turn 3: 2 speed, 1 damage (normal).
-    - Turn 4: 3 speed, 1 damage (speed boost).
-    - Turn 5: 4 speed, 1 damage (maximum speed).
-    - Turn 6+: 4 speed, 2 damage (maximum speed, one-shot attack).
+    - Turn 2: can move 1 tile per turn, but can't attack.
+    - Turn 3+: the debuff slowly wears out and turns into a buff (precise numbers are decided during the balancing stage)
   - **Glass Cannon**: Never gains extra HP (stays vulnerable)
 - **Stealing**: Opponent can attack relic holder to steal relic. Speed and damage progression does **not** reset. If a relic holder with speed 4 and attack 2 is defeated, the unit that dealt the last hit becomes a new relic holder with speed 4 and attack 2, without the stun or slow effects.
+- **No Passing**: units of the same team cannot pass the relic to each other.
 
-### Turn Structure
-1. **Player 1 Turn**
-   - Move units (up to speed limit)
-   - Attack adjacent enemies (optional)
-   - Respawn dead units on spawn tiles (no movement)
-2. **Player 2 Turn** (same actions)
-3. **Relic Effects Update** (timer progression)
+### Round Structure
+- Player 1's turn
+- Player 2's turn
+- Relic effect upgrade (timing might be changed based on who picked the relic first, will be clear in testing)
+
+#### Turn structure
+Every unit can make the following actions:
+
+- Move (up to speed limit)
+- Attack adjacent enemy (once per turn, can't move after attack)
+- Take the relic from its starting position (can't move afterwards)
+
+During their turn, the player can respawn dead units on spawn tiles. The units can't move on the same turn when they were respawned.
+
+Movement order is free. A player may, for example, move UnitA one tile, then respawn UnitB, move UnitC two tiles, attack with UnitC, then move UnitA one last tile and attack with UnitA. 
 
 ### Victory Conditions
 - Deliver relic to opponent's goal tile
@@ -109,67 +116,59 @@ Anti-turtling:
 - Relic power increases over time (speed + damage), giving the advantage to the team holding the relic (attackers).
 
 Anti-snowballing
-- Respawning units prevent permanent advantage
 - Goal is close to the enemy respawn point, so the defending team just has to spawn units to defend the goal, while the attacking team must bring the units from the other side of the field.
+- Relic holder does not get extra HP, so while they are strong during later stages of the game, they are also fragile.
 
 
 ## Planned Features & Development Roadmap
 
-### Phase 1: Core Gameplay (COMPLETED ✅)
-- [x] **Combat System**: HP, damage, adjacency attacks, death mechanics
-- [x] **Turn-Based Structure**: Player turns, "End Turn" button, movement tracking
-- [x] **Basic UI**: Turn indicator, revive UI, CanvasLayer architecture
-- [x] **Visual Feedback**: HP labels, attack highlighting, unit selection
+### Phase 1: Core Gameplay (COMPLETED)
+- [x] Combat, turns, basic UI
 
-### Phase 2: Game Completion (Current Focus)
-- [ ] **Relic Mechanics**: Pickup, carrying, speed progression, stealing
-- [ ] **Goal & Scoring**: Goal tiles, win conditions, score tracking
-- [ ] **Revive Implementation**: Actual unit revival on spawn tiles
-- [ ] **Hotseat Polish**: Improved UI feedback, turn timer, game state display
-- [ ] **Complete UI**: Menus, buttons, UI working intuitively, game scene transition logic
-- [ ] **Balance Testing**: Tune movement, attack values, revive costs
+### Phase 2: Game Completion (In progress)
+At this point the project is playable.
+
+- [x] Relic mechanics, scoring, revives, hotseat version, UI
 
 ### Phase 3: Multiplayer & Polish
-- [ ] **Online Multiplayer**: Network synchronization for browser play
-- [ ] **Enhanced Visuals**: Better sprites, improved UI highlights and hints
-- [ ] **Audio System**: Sound effects for moves, attacks, deaths, UI
-- [ ] **UI Polish**: Improved layouts, tooltips, game state explanations
-- [ ] **Mobile Optimization**: Touch controls, responsive UI scaling
+At this point the playable project can be considered a game, and not just a prototype for fun. A jam-level game.
 
-### Phase 4: Advanced Potential Features
+- [ ] **Enhanced Visuals**: Better sprites, improved UI highlights and hints.
+- [ ] **UI Polish**: Improved layouts, tooltips, game state explanations.
+- [ ] **Online Multiplayer**: Network synchronization for browser play.
+  - [ ] Technical step: separation of game state for multiplayer and for a potential Undo feature.
+- [ ] **Audio System**: Sound effects for moves, attacks, deaths, UI.
+
+### Phase 4: More Polish
+At this point the game just becomes more user-friendly.
+
+- [ ] **Developer Mode**: Configurable game constants for balancing.
+- [ ] **Turn reset**: "Undo" functionality.
+- [ ] **Mobile Optimization**: Touch controls, responsive UI scaling.
+
+### Phase 5: Advanced Potential Features
+At this point the game is no longer jam-level.
+
 - [ ] **AI Opponent**: Single-player mode
 - [ ] **Multiple Maps**: Different grid layouts and starting positions
 - [ ] **Game Statistics**: Win/loss tracking, move history, replay system
 - [ ] **Tutorial System**: In-game instructions for new players
 
+### Phase 6: Another game
+Other unit types, other mechanics, other win conditions. Using the hex grid, the game base and other features as a foundation for a more complex game project.
+
+
 ### Technical Goals
 - **Browser Deployment**: Export as HTML5 for web play
 - **Simple Multiplayer**: Direct peer-to-peer or simple server architecture
-- **Mobile-Friendly**: Responsive controls for touch devices
 
 ## Technical Architecture
 
 ### Current Code Structure
 ```
 scripts/game/
-├── game_scene.gd           # Main game logic (~350 lines)
-│   ├── Grid management (TileMapLayer, obstacles)
-│   ├── Turn tracking (current_player, _switch_player_turn)
-│   ├── Movement system (get_reachable_tiles, move_unit)
-│   ├── Combat logic (attack handling, death processing)
-│   ├── UI management (turn indicator, revive UI updates)
-│   ├── Input handling (select_tile, _handle_tile_click)
-│   └── Game state (obstacles, selected_unit, revive counts)
-│
-├── unit.gd                 # Enhanced Unit class definition
-│   ├── Basic properties (conflict_side, grid_position, speed)
-│   ├── Combat stats (max_hp, current_hp, attack_power)
-│   ├── Turn tracking (movement_left, has_attacked_this_turn)
-│   ├── Combat methods (take_damage, attack, is_dead)
-│   ├── Turn management (reset_turn)
-│   ├── Visual components (sprite, hp_label)
-│   └── HP label management (_create_hp_label, _update_hp_label)
-│
+├── game_scene.gd           # Main game logic. Handling input, managing units on the game board.
+├── unit.gd                 # Unit class definition. Managing interations of units with other objects - combat, relic buffs, unit UI
 └── unit_selection.gd       # Visual selection indicator
 
 scenes/game/
