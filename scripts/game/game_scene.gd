@@ -1,8 +1,5 @@
 extends Node2D
 
-# Preload GameConstants to access its static members
-const GC = preload("res://scripts/config/GameConstants.gd")
-
 @onready var terrain_layer: TileMapLayer = $TileMapLayer
 @onready var highlight_layer: TileMapLayer = $HighlightLayer
 var obstacles: Dictionary = {}
@@ -14,7 +11,6 @@ var unit_selection: UnitSelection
 var relic_instance: Node2D
 var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION  # Center of map
 var relic_holder: Unit = null  # Which unit is holding the relic
-
 
 var start_locations_1: Array[Vector2i] = GC.RED_SPAWN_POSITIONS
 var home_location_1 = GC.RED_GOAL_POSITION
@@ -50,7 +46,6 @@ var blue_revive_count: int = 0
 # Game over menu
 var GameOverMenuScene: PackedScene = null
 var game_over_menu: PopupPanel = null
-
 
 
 # Called when the node enters the scene tree for the first time.
@@ -163,7 +158,7 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
     previous_holder.drop_relic()
 
     # New holder takes the relic with current global timer
-    new_holder.transfer_relic(relic_timer)
+    new_holder.become_relic_holder(relic_timer)
     relic_holder = new_holder
 
     # Update relic status UI

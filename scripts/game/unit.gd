@@ -1,8 +1,6 @@
 class_name Unit
 extends Node2D
 
-const GC = preload("res://scripts/config/GameConstants.gd")
-
 @export var conflict_side: int = 1
 @export var grid_position: Vector2i
 @export var speed: int = GC.UNIT_SPEED
@@ -18,7 +16,7 @@ var has_attacked_this_turn: bool = false
 var is_relic_holder: bool = false
 
 @onready var sprite: Sprite2D = $Sprite2D
-@onready var hp_label: Label
+@onready var hp_label: Label = $HPLabel
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -31,9 +29,7 @@ func _ready() -> void:
     movement_left = speed
     # Initialize HP
     current_hp = max_hp
-
-    # Create HP label
-    _create_hp_label()
+    # Fill HP label
     _update_hp_label()
 
 # Reset movement and attack status at start of player's turn
@@ -72,6 +68,7 @@ func become_relic_holder(timer: int) -> void:
     is_relic_holder = true
     _update_relic_sprite()
     apply_relic_effects(timer)
+    # Unit is stunned on the same turn it becomes a relic holder
     movement_left = 0
     print("Unit became relic holder with timer:", timer)
 
@@ -102,35 +99,14 @@ func apply_relic_effects(timer: int) -> void:
 
     print("Relic holder effects: timer=", timer, ", speed=", movement_left, ", attack=", attack_power)
 
-# Transfer relic from another unit (for stealing) - timer passed from game scene
-func transfer_relic(timer: int) -> void:
-    is_relic_holder = true
-    _update_relic_sprite()
-    apply_relic_effects(timer)
-    movement_left = 0
-    print("Relic transferred to unit. Global timer:", timer)
-
 # Drop relic (when unit dies or otherwise loses relic)
 func drop_relic() -> void:
     is_relic_holder = false
     _update_relic_sprite()
     # Reset to normal stats
     movement_left = speed
-    attack_power = 1
+    attack_power = GC.UNIT_ATTACK_POWER
     print("Unit dropped relic")
-
-
-func _create_hp_label() -> void:
-    # Create a label to show HP above the unit
-    hp_label = Label.new()
-    hp_label.name = "HPLabel"
-    hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    hp_label.position = Vector2(0, -25)  # Position above the unit
-    hp_label.add_theme_font_size_override("font_size", 16)
-    hp_label.add_theme_color_override("font_color", Color.WHITE)
-    add_child(hp_label)
-
 
 func _update_hp_label() -> void:
     # Update the HP label text
