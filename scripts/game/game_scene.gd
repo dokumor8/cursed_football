@@ -10,12 +10,6 @@ var RelicScene: PackedScene = preload("res://scenes/game/relic.tscn")
 var unit_selection: UnitSelection
 var relic_instance: Node2D
 var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION  # Center of map
-var relic_holder: Unit = null  # Which unit is holding the relic
-
-var start_locations_1: Array[Vector2i] = GC.RED_SPAWN_POSITIONS
-var home_location_1 = GC.RED_GOAL_POSITION
-var start_locations_2: Array[Vector2i] = GC.BLUE_SPAWN_POSITIONS
-var home_location_2 = GC.BLUE_GOAL_POSITION
 
 # Revival system
 var is_revival_mode: bool = false
@@ -24,16 +18,6 @@ var attack_highlight_atlas: Vector2i = GC.ATTACK_HIGHLIGHT_ATLAS  # Different ti
 var goal_highlight_atlas: Vector2i = GC.GOAL_HIGHLIGHT_ATLAS  # Different tile for goal highlight
 
 var relic_timer: int = 0
-
-var selected_tile: Vector2i
-var selected_unit: Unit
-
-# Turn tracking
-var current_player: int = GC.PLAYER_RED  # Red player starts (bottom)
-
-# Revive tracking
-var red_revive_count: int = 0
-var blue_revive_count: int = 0
 
 # UI elements
 @onready var turn_indicator: Label = $UILayer/MainUIContainer/TopBar/TurnIndicator
@@ -121,7 +105,7 @@ func _spawn_relic_at_tile(grid_pos: Vector2i):
 func _pickup_relic(unit: Unit) -> void:
     # Unit picks up the relic with current global timer
     unit.become_relic_holder(relic_timer)
-    relic_holder = unit
+    GS.relic_holder = unit
 
     # Remove relic from obstacles (it's now carried by unit)
     obstacles[relic_position] = false
@@ -159,7 +143,7 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
 
     # New holder takes the relic with current global timer
     new_holder.become_relic_holder(relic_timer)
-    relic_holder = new_holder
+    GS.relic_holder = new_holder
 
     # Update relic status UI
     _update_relic_status()
@@ -167,22 +151,20 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
 
 
 func select_tile(coords: Vector2i) -> void:
-    selected_tile = coords
-
     # Handle revival mode first
     if is_revival_mode:
         _handle_revival_click(coords)
         return
 
     # If we have a selected unit
-    if selected_unit:
-        var unit_coords = selected_unit.grid_position
+    if GS.selected_unit:
+        var unit_coords = GS.selected_unit.grid_position
 
         # First check if clicking on the relic for pickup
-        if coords == relic_position and relic_holder == null and _are_tiles_adjacent(unit_coords, coords):
+        if coords == relic_position and GS.relic_holder == null and _are_tiles_adjacent(unit_coords, coords):
             # Pick up the relic
             print("Picking up relic at", coords)
-            _pickup_relic(selected_unit)
+            _pickup_relic(GS.selected_unit)
             clear_selection()
             clear_walkable_highlight()
             return
@@ -190,17 +172,17 @@ func select_tile(coords: Vector2i) -> void:
         # Then check if clicking on an enemy unit for attack
         var enemy_unit_at_tile: Unit = null
         for unit: Unit in get_tree().get_nodes_in_group("units"):
-            if unit.grid_position == coords and unit.conflict_side != current_player:
+            if unit.grid_position == coords and unit.conflict_side != GS.current_player:
                 enemy_unit_at_tile = unit
                 break
 
         if enemy_unit_at_tile and _are_tiles_adjacent(unit_coords, coords):
             # Attack the enemy unit
             print("Attacking enemy unit at", coords)
-            selected_unit.attack(enemy_unit_at_tile)
+            GS.selected_unit.attack(enemy_unit_at_tile)
 
             # Save reference to attacker before clearing selection
-            var attacker: Unit = selected_unit
+            var attacker: Unit = GS.selected_unit
 
             clear_selection()
             clear_walkable_highlight()
@@ -208,7 +190,7 @@ func select_tile(coords: Vector2i) -> void:
             # Check if enemy unit died
             if enemy_unit_at_tile.is_dead():
                 # Check if the dead unit was holding the relic
-                if relic_holder == enemy_unit_at_tile:
+                if GS.relic_holder == enemy_unit_at_tile:
                     # Steal the relic - attacker becomes new relic holder
                     _steal_relic(attacker, enemy_unit_at_tile)
 
@@ -217,11 +199,11 @@ func select_tile(coords: Vector2i) -> void:
             # Try to move the unit
             print("Unit from", unit_coords)
             print("walks to", coords)
-            var reachable_data = get_reachable_tiles(unit_coords, selected_unit.movement_left)
+            var reachable_data = get_reachable_tiles(unit_coords, GS.selected_unit.movement_left)
             var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
             if reachable_tiles.has(coords):
                 var movement_cost: int = reachable_data["distances"][coords]
-                move_unit(selected_unit, coords, movement_cost)
+                move_unit(GS.selected_unit, coords, movement_cost)
                 clear_selection()
                 clear_walkable_highlight()
                 # Note: Turn no longer switches automatically after moving
@@ -236,7 +218,7 @@ func select_tile(coords: Vector2i) -> void:
         for unit: Unit in get_tree().get_nodes_in_group("units"):
             if unit.grid_position == coords:
                 # Only allow selecting units belonging to current player
-                if unit.conflict_side == current_player:
+                if unit.conflict_side == GS.current_player:
                     select_unit(unit)
                 else:
                     print("Cannot select opponent's unit during your turn")
@@ -268,7 +250,7 @@ func highlight_walkable_tiles(unit) -> void:
 func select_unit(unit: Unit) -> void:
     unit_selection.global_position = unit.global_position
     unit_selection.visible = true
-    selected_unit = unit
+    GS.selected_unit = unit
     highlight_walkable_tiles(unit)
 
 
@@ -295,7 +277,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func clear_selection():
     unit_selection.visible = false
-    selected_unit = null
+    GS.selected_unit = null
 
 
 func get_reachable_tiles(start: Vector2i, max_distance: int) -> Dictionary:
@@ -401,17 +383,17 @@ func _show_victory_message(player_name: String, player_color: Color) -> void:
 func _switch_player_turn() -> void:
 
     # Switch to the other player
-    if current_player == GC.PLAYER_RED:
-        current_player = GC.PLAYER_BLUE
+    if GS.current_player == GC.PLAYER_RED:
+        GS.current_player = GC.PLAYER_BLUE
         print("Now it's Blue player's turn")
     else:
         # Increment global relic timer once per round (after Blue player's turn)
-        if relic_holder:
+        if GS.relic_holder:
             relic_timer += 1
             # Update relic holder's effects with new timer value
-            relic_holder.apply_relic_effects(relic_timer)
+            GS.relic_holder.apply_relic_effects(relic_timer)
             print("Global relic timer incremented to:", relic_timer)
-        current_player = GC.PLAYER_RED
+        GS.current_player = GC.PLAYER_RED
         print("Now it's Red player's turn")
 
     # Reset movement for all units of the new current player
@@ -425,7 +407,7 @@ func _switch_player_turn() -> void:
 func _reset_player_unit_movements() -> void:
     # Reset movement and attack status for all units belonging to current player
     for unit: Unit in get_tree().get_nodes_in_group("units"):
-        if unit.conflict_side == current_player:
+        if unit.conflict_side == GS.current_player:
             unit.reset_turn()
 
 
@@ -445,13 +427,13 @@ func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
     for tile in adjacent_tiles:
         # Check if tile contains an enemy unit
         for unit: Unit in get_tree().get_nodes_in_group("units"):
-            if unit.grid_position == tile and unit.conflict_side != current_player:
+            if unit.grid_position == tile and unit.conflict_side != GS.current_player:
                 # This is an attackable enemy unit
                 highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
                 break
 
         # Also check if tile contains the relic (and relic is not held by anyone)
-        if tile == relic_position and relic_holder == null:
+        if tile == relic_position and GS.relic_holder == null:
             # This is a pickupable relic
             highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
 
@@ -461,13 +443,12 @@ func _highlight_revival_tiles() -> void:
     clear_walkable_highlight()
 
     # Get spawn tiles for current player
-    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(current_player)
+    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(GS.current_player)
 
     # Highlight each spawn tile if it's not occupied
     for tile in spawn_tiles:
         if _is_walkable(tile):  # Check if tile is not occupied
             highlight_layer.set_cell(tile, 0, revival_highlight_atlas)
-            print("Highlighted revival tile at", tile)
 
 
 func _highlight_goal_tiles() -> void:
@@ -479,7 +460,7 @@ func _highlight_goal_tiles() -> void:
 
 func _handle_revival_click(coords: Vector2i) -> void:
     # Check if clicked tile is a valid revival tile
-    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(current_player)
+    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(GS.current_player)
 
     if spawn_tiles.has(coords) and _is_walkable(coords):
         # Spawn a unit at this tile
@@ -492,7 +473,7 @@ func _handle_revival_click(coords: Vector2i) -> void:
 func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     # Spawn a unit for current player
     var unit = UnitScene.instantiate()
-    unit.conflict_side = current_player
+    unit.conflict_side = GS.current_player
     add_child(unit)
     unit.add_to_group("units")
     unit.grid_position = grid_pos
@@ -508,13 +489,13 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     unit.has_attacked_this_turn = true  # Can't attack this turn
     # Note: attack_power is already 1 by default, which is correct for revived units
 
-    print("Revived unit at", grid_pos, "for player", current_player)
+    print("Revived unit at", grid_pos, "for player", GS.current_player)
 
     # Decrement revive count
-    if current_player == GC.PLAYER_RED:
-        red_revive_count -= 1
+    if GS.current_player == GC.PLAYER_RED:
+        GS.red_revive_count -= 1
     else:
-        blue_revive_count -= 1
+        GS.blue_revive_count -= 1
 
     # Update UI
     _update_revive_ui()
@@ -524,12 +505,12 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     clear_walkable_highlight()
     revive_button.text = "Revive Unit"
 
-    print("Revival complete. Revives left:", red_revive_count if current_player == GC.PLAYER_RED else blue_revive_count)
+    print("Revival complete. Revives left:", GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count)
 
 
 func _update_turn_indicator() -> void:
     # Update the turn indicator label based on current player
-    if current_player == GC.PLAYER_RED:
+    if GS.current_player == GC.PLAYER_RED:
         turn_indicator.text = "Red Player's Turn"
         turn_indicator.add_theme_color_override("font_color", Color.RED)
     else:
@@ -538,10 +519,10 @@ func _update_turn_indicator() -> void:
 
 
 func _update_relic_status() -> void:
-    if relic_holder:
-        var player_name = "Red" if relic_holder.conflict_side == GC.PLAYER_RED else "Blue"
+    if GS.relic_holder:
+        var player_name = "Red" if GS.relic_holder.conflict_side == GC.PLAYER_RED else "Blue"
         relic_status.text = "Relic: Held by " + player_name + " (Global Timer: " + str(relic_timer) + ")"
-        relic_status.add_theme_color_override("font_color", Color.RED if relic_holder.conflict_side == GC.PLAYER_RED else Color.BLUE)
+        relic_status.add_theme_color_override("font_color", Color.RED if GS.relic_holder.conflict_side == GC.PLAYER_RED else Color.BLUE)
     else:
         relic_status.text = "Relic: On ground at " + str(relic_position) + " (Timer: " + str(relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.WHITE)
@@ -559,11 +540,11 @@ func _handle_unit_death(unit: Unit) -> void:
 
     # Increment revive count for the player who lost the unit
     if unit.conflict_side == GC.PLAYER_RED:
-        red_revive_count += GC.REVIVE_TOKEN_REWARD  # Red player killed a blue unit
-        print("Red player gets a revive token. Total:", red_revive_count)
+        GS.red_revive_count += GC.REVIVE_TOKEN_REWARD  # Red player killed a blue unit
+        print("Red player gets a revive token. Total:", GS.red_revive_count)
     else:
-        blue_revive_count += GC.REVIVE_TOKEN_REWARD  # Blue player killed a red unit
-        print("Blue player gets a revive token. Total:", blue_revive_count)
+        GS.blue_revive_count += GC.REVIVE_TOKEN_REWARD  # Blue player killed a red unit
+        print("Blue player gets a revive token. Total:", GS.blue_revive_count)
 
     # Update revive UI
     _update_revive_ui()
@@ -571,12 +552,12 @@ func _handle_unit_death(unit: Unit) -> void:
 
 func _update_revive_ui() -> void:
     # Update revive UI based on current player
-    if current_player == GC.PLAYER_RED:
-        revive_count.text = "Revives: " + str(red_revive_count)
-        revive_button.disabled = (red_revive_count <= 0)
+    if GS.current_player == GC.PLAYER_RED:
+        revive_count.text = "Revives: " + str(GS.red_revive_count)
+        revive_button.disabled = (GS.red_revive_count <= 0)
     else:
-        revive_count.text = "Revives: " + str(blue_revive_count)
-        revive_button.disabled = (blue_revive_count <= 0)
+        revive_count.text = "Revives: " + str(GS.blue_revive_count)
+        revive_button.disabled = (GS.blue_revive_count <= 0)
 
 
 func _on_end_turn_button_pressed() -> void:
@@ -588,7 +569,7 @@ func _on_end_turn_button_pressed() -> void:
         print("Revival mode cancelled due to turn end")
 
     # End current player's turn and switch to other player
-    print("Ending turn for player", current_player)
+    print("Ending turn for player", GS.current_player)
     _switch_player_turn()
     _update_revive_ui()
 
@@ -603,7 +584,7 @@ func _on_revive_button_pressed() -> void:
         print("Revival mode cancelled")
     else:
         # Enter revival mode if player has revives
-        var available_revives = red_revive_count if current_player == GC.PLAYER_RED else blue_revive_count
+        var available_revives = GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count
         if available_revives > 0:
             is_revival_mode = true
             revive_button.text = "Cancel revival"

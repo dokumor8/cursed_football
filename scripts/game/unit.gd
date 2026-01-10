@@ -1,7 +1,7 @@
 class_name Unit
 extends Node2D
 
-@export var conflict_side: int = 1
+@export var conflict_side: int = GC.PLAYER_RED
 @export var grid_position: Vector2i
 @export var speed: int = GC.UNIT_SPEED
 var movement_left: int = GC.UNIT_SPEED  # How much movement this unit has left this turn
@@ -21,7 +21,7 @@ var is_relic_holder: bool = false
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
     # Set the appropriate sprite based on conflict side
-    if conflict_side == 1:
+    if conflict_side == GC.PLAYER_RED:
         sprite.texture = preload("res://assets/images/objects/unit_red.png")
     else:
         sprite.texture = preload("res://assets/images/objects/unit_blue.png")
@@ -31,6 +31,21 @@ func _ready() -> void:
     current_hp = max_hp
     # Fill HP label
     _update_hp_label()
+
+
+func serialize() -> Dictionary:
+    var unit_data = {
+        "grid_pos_x": grid_position.x,
+        "grid_pos_y": grid_position.y,
+        "current_hp": current_hp,
+        "is_relic_holder": is_relic_holder,
+        "has_attacked_this_turn": has_attacked_this_turn,
+        "attack_power": attack_power,
+        "conflict_side": conflict_side,
+        "speed": speed,
+        "movement_left": movement_left
+    }
+    return unit_data
 
 # Reset movement and attack status at start of player's turn
 func reset_turn() -> void:
@@ -75,12 +90,12 @@ func become_relic_holder(timer: int) -> void:
 # Update sprite based on relic holder status
 func _update_relic_sprite() -> void:
     if is_relic_holder:
-        if conflict_side == 1:
+        if conflict_side == GC.PLAYER_RED:
             sprite.texture = preload("res://assets/images/objects/relic_holder_red.png")
         else:
             sprite.texture = preload("res://assets/images/objects/relic_holder_blue.png")
     else:
-        if conflict_side == 1:
+        if conflict_side == GC.PLAYER_RED:
             sprite.texture = preload("res://assets/images/objects/unit_red.png")
         else:
             sprite.texture = preload("res://assets/images/objects/unit_blue.png")
