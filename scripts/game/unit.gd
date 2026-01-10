@@ -93,37 +93,12 @@ func apply_relic_effects(timer: int) -> void:
     if not is_relic_holder:
         return
 
-    # According to PROJECT.md relic progression:
-    # Turn 1: 0 speed, 0 damage (stunned)
-    # Turns 2-3: 1 speed, 0 damage (slowed, can't attack)
-    # Turns 4-5: 2 speed, 1 damage (normal)
-    # Turns 6-7: 3 speed, 1 damage (speed boost)
-    # Turns 8-9: 4 speed, 1 damage (maximum speed)
-    # Turns 10-11: 4 speed, 2 damage (maximum speed, double damage)
-    # Turn 12+: 4 speed, 3 damage (maximum speed, one-shot attack)
-
-    match timer:
-        0:  # Just picked up - stunned
-            movement_left = 0
-            attack_power = 0
-        1, 2:  # Turns 2-3 - slowed, can't attack
-            movement_left = 1
-            attack_power = 0
-        3, 4:  # Turns 4-5 - normal
-            movement_left = 2
-            attack_power = 1
-        5, 6:  # Turns 6-7 - speed boost
-            movement_left = 3
-            attack_power = 1
-        7, 8:  # Turns 8-9 - maximum speed
-            movement_left = 4
-            attack_power = 1
-        9, 10:  # Turns 10-11 - maximum speed, double damage
-            movement_left = 4
-            attack_power = 2
-        _:  # Turn 12+ - maximum speed, one-shot attack
-            movement_left = 4
-            attack_power = 3
+    if timer >= len(GC.RELIC_HOLDER_SPEED):
+        movement_left = GC.RELIC_HOLDER_SPEED[-1]
+        attack_power = GC.RELIC_HOLDER_ATTACK[-1]
+    else:
+        movement_left = GC.RELIC_HOLDER_SPEED[timer]
+        attack_power = GC.RELIC_HOLDER_ATTACK[timer]
 
     print("Relic holder effects: timer=", timer, ", speed=", movement_left, ", attack=", attack_power)
 

@@ -28,7 +28,6 @@ var attack_highlight_atlas: Vector2i = GC.ATTACK_HIGHLIGHT_ATLAS  # Different ti
 var goal_highlight_atlas: Vector2i = GC.GOAL_HIGHLIGHT_ATLAS  # Different tile for goal highlight
 
 var relic_timer: int = 0
-var relic_speed_effect: Array[int] = GC.RELIC_SPEED_EFFECTS
 
 var selected_tile: Vector2i
 var selected_unit: Unit

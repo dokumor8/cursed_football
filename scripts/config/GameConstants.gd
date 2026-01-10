@@ -27,7 +27,8 @@ static var BLUE_GOAL_POSITION: Vector2i = Vector2i(4, 3)
 
 # Relic configuration
 static var INITIAL_RELIC_POSITION: Vector2i = Vector2i(4, 6)  # Center of map
-static var RELIC_SPEED_EFFECTS: Array[int] = [-2, -1, 0, 1, 2]
+static var RELIC_HOLDER_SPEED: Array[int] =  [0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4]
+static var RELIC_HOLDER_ATTACK: Array[int] = [0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3]
 
 # Tile atlas coordinates for highlighting
 static var REVIVAL_HIGHLIGHT_ATLAS: Vector2i = Vector2i(1, 0)
