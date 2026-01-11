@@ -1,44 +1,52 @@
 [gd_scene load_steps=8 format=4 uid="uid://eiseghgy1gp4"]
 
 [ext_resource type="Script" uid="uid://u7ag56bjiyh2" path="res://scripts/game/game_scene.gd" id="1_mixcd"]
-[ext_resource type="Texture2D" uid="uid://d0a3lulys7v80" path="res://assets/images/tiles/hex.png" id="2_po0ka"]
-[ext_resource type="Texture2D" uid="uid://cyj03xwupexy6" path="res://assets/images/tiles/hex_highlight.png" id="3_v1wow"]
+[ext_resource type="Texture2D" uid="uid://bsb8q6nukwrny" path="res://assets/images/tiles/hex2.png" id="2_ydf3n"]
+[ext_resource type="Texture2D" uid="uid://cfs4sw0msmtsx" path="res://assets/images/tiles/hex_highlight2.png" id="3_ydf3n"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_v1wow"]
-texture = ExtResource("2_po0ka")
-texture_region_size = Vector2i(53, 46)
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6hqhf"]
+texture = ExtResource("2_ydf3n")
+texture_region_size = Vector2i(106, 92)
 0:0/0 = 0
+1:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
 
 [sub_resource type="TileSet" id="TileSet_mixcd"]
 tile_shape = 3
 tile_offset_axis = 1
-tile_size = Vector2i(48, 41)
-sources/1 = SubResource("TileSetAtlasSource_v1wow")
+tile_size = Vector2i(97, 83)
+sources/0 = SubResource("TileSetAtlasSource_6hqhf")
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_mixcd"]
-texture = ExtResource("3_v1wow")
-texture_region_size = Vector2i(53, 46)
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_p0de3"]
+texture = ExtResource("3_ydf3n")
+texture_region_size = Vector2i(106, 92)
 0:0/0 = 0
 1:0/0 = 0
 2:0/0 = 0
 0:1/0 = 0
 1:1/0 = 0
 2:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
 
 [sub_resource type="TileSet" id="TileSet_mj2jn"]
 tile_shape = 3
 tile_offset_axis = 1
-tile_size = Vector2i(48, 41)
-sources/0 = SubResource("TileSetAtlasSource_mixcd")
+tile_size = Vector2i(97, 83)
+sources/0 = SubResource("TileSetAtlasSource_p0de3")
 
-[node name="GameScene" type="Node2D"]
+[node name="GameScene" type="Node2D" groups=["main_scene"]]
 script = ExtResource("1_mixcd")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="."]
-tile_map_data = PackedByteArray("AAADAAQAAQAAAAAAAAAFAAQAAQAAAAAAAAACAAUAAQAAAAAAAAADAAUAAQAAAAAAAAAEAAUAAQAAAAAAAAAFAAUAAQAAAAAAAAADAAYAAQAAAAAAAAAEAAYAAQAAAAAAAAAFAAYAAQAAAAAAAAAGAAUAAQAAAAAAAAAGAAYAAQAAAAAAAAAEAAcAAQAAAAAAAAAFAAcAAQAAAAAAAAADAAcAAQAAAAAAAAACAAYAAQAAAAAAAAACAAcAAQAAAAAAAAAGAAcAAQAAAAAAAAAEAAgAAQAAAAAAAAAEAAQAAQAAAAAAAAAEAAMAAQAAAAAAAAAFAAMAAQAAAAAAAAAGAAQAAQAAAAAAAAAHAAQAAQAAAAAAAAAHAAUAAQAAAAAAAAAHAAYAAQAAAAAAAAAHAAcAAQAAAAAAAAAGAAgAAQAAAAAAAAAFAAgAAQAAAAAAAAAEAAkAAQAAAAAAAAADAAgAAQAAAAAAAAACAAgAAQAAAAAAAAABAAcAAQAAAAAAAAABAAYAAQAAAAAAAAABAAUAAQAAAAAAAAABAAQAAQAAAAAAAAACAAQAAQAAAAAAAAADAAMAAQAAAAAAAAA=")
+position = Vector2(0, 20)
+tile_map_data = PackedByteArray("AAADAAQAAAAAAAAAAAAFAAQAAAAAAAAAAAACAAUAAAAAAAAAAAADAAUAAAAAAAAAAAAEAAUAAAAAAAAAAAAFAAUAAAAAAAAAAAAEAAYAAAAAAAAAAAAGAAUAAAAAAAAAAAAEAAQAAAAAAAAAAAAEAAMAAAAAAAAAAAAFAAMAAAAAAAAAAAAGAAQAAAAAAAAAAAAHAAQAAAAAAAAAAAABAAQAAAAAAAAAAAACAAQAAAAAAAAAAAADAAMAAAAAAAAAAAABAAMAAAAAAAAAAAACAAMAAAAAAAAAAAADAAIAAAAAAAAAAAAEAAIAAAAAAAAAAAAFAAIAAAAAAAAAAAAGAAMAAAAAAAAAAAAHAAMAAAAAAAAAAAAHAAIAAAAAAAAAAAAGAAIAAAAAAAAAAAAFAAEAAAAAAAAAAAAEAAEAAAAAAAAAAAADAAEAAAAAAAAAAAACAAIAAAAAAAAAAAABAAIAAAAAAAAAAAABAAEAAAAAAAAAAAACAAEAAAAAAAAAAAADAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAGAAEAAAAAAAAAAAAHAAEAAAAAAAAAAAA=")
 tile_set = SubResource("TileSet_mixcd")
 
 [node name="HighlightLayer" type="TileMapLayer" parent="."]
+position = Vector2(0, 20)
 tile_set = SubResource("TileSet_mj2jn")
 
 [node name="UILayer" type="CanvasLayer" parent="."]
@@ -91,6 +99,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "End Turn"
+
+[node name="ResetTurnButton" type="Button" parent="UILayer/MainUIContainer/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reset Turn"
 
 [node name="ReviveButton" type="Button" parent="UILayer/MainUIContainer/BottomBar"]
 custom_minimum_size = Vector2(120, 0)

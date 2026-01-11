@@ -24,6 +24,7 @@ var relic_timer: int = 0
 @onready var relic_status: Label = $UILayer/MainUIContainer/TopBar/RelicStatus
 @onready var end_turn_button: Button = $UILayer/MainUIContainer/BottomBar/EndTurnButton
 @onready var revive_button: Button = $UILayer/MainUIContainer/BottomBar/ReviveButton
+@onready var reset_button: Button = $UILayer/MainUIContainer/BottomBar/ResetTurnButton
 @onready var revive_count: Label = $UILayer/MainUIContainer/BottomBar/ReviveCount
 @onready var victory_message: Label = $UILayer/MainUIContainer/VictoryMessage
 
@@ -43,12 +44,12 @@ func _ready() -> void:
     _load_game_over_menu()
 
     for location in GC.get_spawn_positions(GC.PLAYER_RED):
-        _spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
+        spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
     for location in GC.get_spawn_positions(GC.PLAYER_BLUE):
-        _spawn_unit_at_tile(UnitScene, location, GC.PLAYER_BLUE)
+        spawn_unit_at_tile(UnitScene, location, GC.PLAYER_BLUE)
 
     # Spawn relic at center of map
-    _spawn_relic_at_tile(relic_position)
+    spawn_relic_at_tile(relic_position)
 
     # Initialize UI
     _update_turn_indicator()
@@ -58,11 +59,10 @@ func _ready() -> void:
     # Highlight goal tiles
     _highlight_goal_tiles()
 
-    # Connect End Turn button signal
+    # Connect button signals
     end_turn_button.pressed.connect(_on_end_turn_button_pressed)
-
-    # Connect Revive button signal
     revive_button.pressed.connect(_on_revive_button_pressed)
+    reset_button.pressed.connect(_on_reset_button_pressed)
 
     # Initialize movements for starting player (Red)
     _reset_player_unit_movements()
@@ -76,7 +76,7 @@ func _is_walkable(coords: Vector2i) -> bool:
     return not obstacles[coords]
 
 
-func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1):
+func spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=GC.PLAYER_RED) -> Unit:
     var unit = spawning_scene.instantiate()
     unit.conflict_side = side
     add_child(unit)
@@ -87,9 +87,11 @@ func _spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side=1
     var local_pos = terrain_layer.map_to_local(grid_pos)
     var global_pos = terrain_layer.to_global(local_pos)
     unit.global_position = global_pos
+    print("Spawning unit at", grid_pos)
+    return unit
 
 
-func _spawn_relic_at_tile(grid_pos: Vector2i):
+func spawn_relic_at_tile(grid_pos: Vector2i):
     relic_instance = RelicScene.instantiate()
     add_child(relic_instance)
     relic_position = grid_pos
@@ -571,7 +573,12 @@ func _on_end_turn_button_pressed() -> void:
     # End current player's turn and switch to other player
     print("Ending turn for player", GS.current_player)
     _switch_player_turn()
+    GS.save_game()
     _update_revive_ui()
+
+
+func _on_reset_button_pressed() -> void:
+    GS.load_game()
 
 
 func _on_revive_button_pressed() -> void:

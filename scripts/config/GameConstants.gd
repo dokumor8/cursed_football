@@ -11,23 +11,23 @@ var PLAYER_BLUE: int = 2   # Blue player (top)
 
 # Player spawn positions
 var RED_SPAWN_POSITIONS: Array[Vector2i] = [
-    Vector2i(3, 8),
-    Vector2i(4, 8),
-    Vector2i(5, 8)
+    Vector2i(3, 5),
+    Vector2i(4, 5),
+    Vector2i(5, 5)
 ]
 
 var BLUE_SPAWN_POSITIONS: Array[Vector2i] = [
-    Vector2i(3, 3),
-    Vector2i(4, 4),
-    Vector2i(5, 3)
+    Vector2i(3, 0),
+    Vector2i(4, 1),
+    Vector2i(5, 0)
 ]
 
 # Goal positions
-var RED_GOAL_POSITION: Vector2i = Vector2i(4, 9)
-var BLUE_GOAL_POSITION: Vector2i = Vector2i(4, 3)
+var RED_GOAL_POSITION: Vector2i = Vector2i(4, 6)
+var BLUE_GOAL_POSITION: Vector2i = Vector2i(4, 0)
 
 # Relic configuration
-var INITIAL_RELIC_POSITION: Vector2i = Vector2i(4, 6)  # Center of map
+var INITIAL_RELIC_POSITION: Vector2i = Vector2i(4, 3)  # Center of map
 var RELIC_HOLDER_SPEED: Array[int] =  [0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4]
 var RELIC_HOLDER_ATTACK: Array[int] = [0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3]
 
