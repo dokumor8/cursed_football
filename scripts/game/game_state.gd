@@ -59,9 +59,21 @@ func deserealize(json_string: String) -> Dictionary:
 
 
 func load_state(game_data: Dictionary) -> void:
+    print("DEBUG: load_state called")
+    print("DEBUG: Current scene name: ", get_tree().current_scene.name if get_tree().current_scene else "No current scene")
+    
     var unit_scene = preload("res://scenes/game/unit.tscn")
     
-    var game_scene = get_tree().get_nodes_in_group("main_scene")[0]
+    var game_scenes = get_tree().get_nodes_in_group("main_scene")
+    print("DEBUG: Found ", game_scenes.size(), " nodes in 'main_scene' group")
+    for i in range(game_scenes.size()):
+        print("DEBUG:   Node ", i, ": ", game_scenes[i].name, " (", game_scenes[i].get_class(), ")")
+    
+    if game_scenes.size() == 0:
+        print("ERROR: No game scene found in load_state!")
+        return
+    var game_scene = game_scenes[0]
+    print("DEBUG: Using game scene: ", game_scene.name)
     
     red_revive_count = game_data["red_revive_count"]
     blue_revive_count = game_data["blue_revive_count"]
@@ -119,22 +131,175 @@ func load_game():
     var game_data = deserealize(json_string)
     load_state(game_data)
 
-    # while save_file.get_position() < save_file.get_length():
-    #     # var json_string = save_file.get_line()
+# Network RPC functions
+@rpc("authority", "call_local", "reliable")
+func sync_game_state_rpc(state_json: String) -> void:
+    print("=== RPC: sync_game_state_rpc called ===")
+    print("RPC: Received game state sync from host")
+    print("RPC: State JSON length: ", state_json.length())
+    var game_data = deserealize(state_json)
+    if game_data.is_empty():
+        print("RPC: Failed to parse game state JSON")
+        return
+    print("RPC: Game data keys: ", game_data.keys())
+    print("RPC: Loading game state with ", game_data.get("units", []).size(), " units")
+    load_state(game_data)
+    print("=== RPC: sync_game_state_rpc complete ===")
 
-    #     # Creates the helper class to interact with JSON.
-    #     var json = JSON.new()
+@rpc("any_peer", "call_local", "reliable")
+func request_move_rpc(unit_index: int, target_x: int, target_y: int) -> void:
+    var sender_id = multiplayer.get_remote_sender_id()
+    print("RPC: Received move request from peer ", sender_id, " for unit ", unit_index, " to (", target_x, ", ", target_y, ")")
+    print("RPC: Is server? ", multiplayer.is_server())
+    if multiplayer.is_server():
+        print("Processing move request for unit ", unit_index, " to (", target_x, ", ", target_y, ")")
+        _process_move_request(unit_index, Vector2i(target_x, target_y))
+    else:
+        print("RPC: Not server, ignoring move request")
 
-    #     # Get the data from the JSON object.
-    #     var node_data = json.data
+@rpc("any_peer", "call_local", "reliable")
+func request_attack_rpc(attacker_index: int, target_index: int) -> void:
+    print("RPC: Received attack request from peer ", multiplayer.get_remote_sender_id())
+    if multiplayer.is_server():
+        print("Processing attack request: unit ", attacker_index, " attacks unit ", target_index)
+        _process_attack_request(attacker_index, target_index)
+    else:
+        print("RPC: Not server, ignoring attack request")
 
-    #     # Firstly, we need to create the object and add it to the tree and set its position.
-    #     var new_object = load(node_data["filename"]).instantiate()
-    #     get_node(node_data["parent"]).add_child(new_object)
-    #     new_object.position = Vector2(node_data["pos_x"], node_data["pos_y"])
+@rpc("any_peer", "call_local", "reliable")
+func request_end_turn_rpc() -> void:
+    if multiplayer.is_server():
+        print("Processing end turn request")
+        _process_end_turn_request()
 
-    #     # Now we set the remaining variables.
-    #     for i in node_data.keys():
-    #         if i == "filename" or i == "parent" or i == "pos_x" or i == "pos_y":
-    #             continue
-    #         new_object.set(i, node_data[i])
+@rpc("any_peer", "call_local", "reliable")
+func request_revive_rpc(player: int) -> void:
+    if multiplayer.is_server():
+        print("Processing revive request for player ", player)
+        _process_revive_request(player)
+
+# Process network requests
+func _process_move_request(unit_index: int, target_position: Vector2i) -> void:
+    print("DEBUG: _process_move_request called with unit_index=", unit_index, " target=", target_position)
+    var units = get_tree().get_nodes_in_group("units")
+    print("DEBUG: Found ", units.size(), " units in group")
+    
+    if unit_index >= 0 and unit_index < units.size():
+        var unit = units[unit_index]
+        print("DEBUG: Unit found: side=", unit.conflict_side, " pos=", unit.grid_position, " movement_left=", unit.movement_left)
+        
+        # Check if it's this unit's player's turn
+        if unit.conflict_side != current_player:
+            print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
+            return
+            
+        # Check if unit can move (simplified validation)
+        if unit.movement_left <= 0:
+            print("DEBUG: Unit has no movement left")
+            return
+            
+        # Move the unit (simplified - actual validation should check reachable tiles)
+        var game_scene = get_tree().get_nodes_in_group("main_scene")
+        print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
+        if game_scene.size() > 0 and game_scene[0].has_method("move_unit"):
+            var scene = game_scene[0]
+            # Check if tile is reachable
+            var reachable_data = scene.get_reachable_tiles(unit.grid_position, unit.movement_left)
+            var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
+            
+            print("DEBUG: Checking if target ", target_position, " is in reachable tiles")
+            if reachable_tiles.has(target_position):
+                var movement_cost: int = reachable_data["distances"][target_position]
+                print("DEBUG: Moving unit, movement_cost=", movement_cost)
+                scene.move_unit(unit, target_position, movement_cost)
+                
+                # Sync updated state
+                _sync_game_state()
+            else:
+                print("DEBUG: Tile not reachable for movement")
+        else:
+            print("DEBUG: No game scene found or missing move_unit method")
+    else:
+        print("DEBUG: Invalid unit index: ", unit_index)
+
+func _process_attack_request(attacker_index: int, target_index: int) -> void:
+    print("DEBUG: _process_attack_request called with attacker=", attacker_index, " target=", target_index)
+    var units = get_tree().get_nodes_in_group("units")
+    print("DEBUG: Found ", units.size(), " units in group")
+    
+    if attacker_index >= 0 and attacker_index < units.size() and target_index >= 0 and target_index < units.size():
+        var attacker = units[attacker_index]
+        var target = units[target_index]
+        print("DEBUG: Attacker: side=", attacker.conflict_side, " pos=", attacker.grid_position, " has_attacked=", attacker.has_attacked_this_turn)
+        print("DEBUG: Target: side=", target.conflict_side, " pos=", target.grid_position)
+        
+        # Check if it's attacker's player's turn
+        if attacker.conflict_side != current_player:
+            print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
+            return
+            
+        # Check if attacker can attack
+        if attacker.has_attacked_this_turn:
+            print("DEBUG: Attacker has already attacked this turn")
+            return
+            
+        # Check if target is adjacent (simplified)
+        var distance = abs(attacker.grid_position.x - target.grid_position.x) + \
+                       abs(attacker.grid_position.y - target.grid_position.y)
+        print("DEBUG: Distance between units: ", distance)
+        if distance > 1:
+            print("DEBUG: Target not adjacent")
+            return
+            
+        # Perform attack
+        var game_scene = get_tree().get_nodes_in_group("main_scene")
+        print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
+        if game_scene.size() > 0 and game_scene[0].has_method("attack_unit"):
+            game_scene[0].attack_unit(attacker, target)
+            
+            # Sync updated state
+            _sync_game_state()
+        else:
+            print("DEBUG: No game scene found or missing attack_unit method")
+    else:
+        print("DEBUG: Invalid attacker or target index")
+
+func _process_end_turn_request() -> void:
+    # Switch player
+    current_player = GC.PLAYER_BLUE if current_player == GC.PLAYER_RED else GC.PLAYER_RED
+    
+    # Reset unit states for new player
+    for unit in get_tree().get_nodes_in_group("units"):
+        if unit.conflict_side == current_player:
+            unit.movement_left = unit.speed
+            unit.has_attacked_this_turn = false
+    
+    # Sync updated state
+    _sync_game_state()
+
+func _process_revive_request(player: int) -> void:
+    # Simplified revive logic
+    var game_scenes = get_tree().get_nodes_in_group("main_scene")
+    if game_scenes.size() == 0:
+        print("ERROR: No game scene found in _process_revive_request!")
+        return
+    var game_scene = game_scenes[0]
+    if game_scene.has_method("revive_unit"):
+        game_scene.revive_unit(player)
+        
+        # Sync updated state
+        _sync_game_state()
+
+# Sync game state to all clients
+func _sync_game_state() -> void:
+    print("=== GS._sync_game_state() called ===")
+    print("GS: Is server? ", multiplayer.is_server())
+    if multiplayer.is_server():
+        var state_json = serialize()
+        print("GS: Serialized state, length: ", state_json.length())
+        print("GS: Calling sync_game_state_rpc.rpc()")
+        sync_game_state_rpc.rpc(state_json)
+        print("GS: RPC call sent")
+    else:
+        print("GS: Not server, not syncing")
+    print("=== GS._sync_game_state() complete ===")
