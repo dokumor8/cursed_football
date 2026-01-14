@@ -53,7 +53,7 @@ func _ready() -> void:
     _initialize_game()
     
     # If we're in multiplayer and the host, send initial state to client
-    if multiplayer_manager and multiplayer_manager.is_connected_m():
+    if multiplayer_manager and multiplayer_manager.has_active_connection():
         if multiplayer_manager.is_authority():
             print("Host: Game initialized, sending state to client...")
             # Send initial state to client
@@ -103,7 +103,7 @@ func _initialize_multiplayer() -> void:
     if multiplayer_manager:
         print("DEBUG: Found existing MultiplayerManager at /root")
         print("DEBUG: Connection status: ", multiplayer_manager.get_connection_status())
-        print("DEBUG: Is connected: ", multiplayer_manager.is_connected_m())
+        print("DEBUG: Is connected: ", multiplayer_manager.has_active_connection())
         print("DEBUG: Is authority: ", multiplayer_manager.is_authority())
     else:
         print("DEBUG: No MultiplayerManager found, creating new one")
@@ -246,7 +246,7 @@ func select_tile(coords: Vector2i) -> void:
         return
 
     # Check if it's local player's turn in multiplayer
-    if multiplayer_manager and multiplayer_manager.is_connected_m():
+    if multiplayer_manager and multiplayer_manager.has_active_connection():
         if not multiplayer_manager.is_local_player_turn(GS.current_player):
             print("Not your turn in multiplayer")
             return
@@ -264,7 +264,7 @@ func select_tile(coords: Vector2i) -> void:
             clear_walkable_highlight()
             
             # Sync game state if in multiplayer
-            if multiplayer_manager and multiplayer_manager.is_connected_m():
+            if multiplayer_manager and multiplayer_manager.has_active_connection():
                 GS._sync_game_state()
             return
 
@@ -283,7 +283,7 @@ func select_tile(coords: Vector2i) -> void:
             # Get attacker index
             var attacker_index = _get_unit_index(GS.selected_unit)
             
-            if multiplayer_manager and multiplayer_manager.is_connected_m() and not multiplayer_manager.is_authority():
+            if multiplayer_manager and multiplayer_manager.has_active_connection() and not multiplayer_manager.is_authority():
                 # Client: Send attack request to server
                 GS.request_attack_rpc.rpc_id(1, attacker_index, enemy_unit_index)
                 clear_selection()
@@ -309,7 +309,7 @@ func select_tile(coords: Vector2i) -> void:
                     _handle_unit_death(enemy_unit_at_tile)
                 
                 # Sync game state if in multiplayer
-                if multiplayer_manager and multiplayer_manager.is_connected_m():
+                if multiplayer_manager and multiplayer_manager.has_active_connection():
                     GS._sync_game_state()
         else:
             # Try to move the unit
@@ -320,7 +320,7 @@ func select_tile(coords: Vector2i) -> void:
             if reachable_tiles.has(coords):
                 var movement_cost: int = reachable_data["distances"][coords]
                 
-                if multiplayer_manager and multiplayer_manager.is_connected_m() and not multiplayer_manager.is_authority():
+                if multiplayer_manager and multiplayer_manager.has_active_connection() and not multiplayer_manager.is_authority():
                     # Client: Send move request to server
                     var unit_index_send = _get_unit_index(GS.selected_unit)
                     GS.request_move_rpc.rpc_id(1, unit_index_send, coords.x, coords.y)
@@ -335,7 +335,7 @@ func select_tile(coords: Vector2i) -> void:
                     # Player must click "End Turn" button to end their turn
                     
                     # Sync game state if in multiplayer
-                    if multiplayer_manager and multiplayer_manager.is_connected_m():
+                    if multiplayer_manager and multiplayer_manager.has_active_connection():
                         GS._sync_game_state()
             else:
                 # Clicked on a tile that's not reachable - clear selection
@@ -509,6 +509,7 @@ func attack_unit(attacker: Unit, target: Unit) -> void:
     print("Attacking enemy unit at", target.grid_position)
     attacker.attack(target)
 
+    print("Checking if target is dead during request, target HP is ", target.current_hp)
     # Check if enemy unit died
     if target.is_dead():
         # Check if the dead unit was holding the relic
@@ -649,7 +650,7 @@ func _handle_revival_click(coords: Vector2i) -> void:
 
     if spawn_tiles.has(coords) and _is_walkable(coords):
         # Check if in multiplayer
-        if multiplayer_manager and multiplayer_manager.is_connected_m():
+        if multiplayer_manager and multiplayer_manager.has_active_connection():
             if multiplayer_manager.is_authority():
                 # Host: Process revival directly
                 _revive_unit_at_tile(coords)
@@ -736,6 +737,7 @@ func _handle_unit_death(unit: Unit) -> void:
 
     # Remove the unit node from the scene
     unit.queue_free()
+    unit.remove_from_group("units")
 
     # Increment revive count for the player who lost the unit
     if unit.conflict_side == GC.PLAYER_RED:
@@ -768,7 +770,7 @@ func _on_end_turn_button_pressed() -> void:
         print("Revival mode cancelled due to turn end")
 
     # Check if in multiplayer
-    if multiplayer_manager and multiplayer_manager.is_connected_m():
+    if multiplayer_manager and multiplayer_manager.has_active_connection():
         if multiplayer_manager.is_authority():
             # Host: Process end turn and sync
             print("Ending turn for player", GS.current_player)

@@ -14,7 +14,6 @@ var selected_unit: Unit = null
 func serialize() -> String:
     var units: Array = []
     var relic_holder_index = -1
-    var selected_unit_index = -1
     var loop_index = 0
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         print("serializing unit at", unit.grid_position)
@@ -22,15 +21,12 @@ func serialize() -> String:
         print("Current unit data:", unit_data)
         if relic_holder == unit:
             relic_holder_index = loop_index
-        if selected_unit == unit:
-            selected_unit_index = loop_index
         units.append(unit_data)
         loop_index += 1
     print("Unit data:", units)
     var game_state = {
         "units": units,
         "relic_holder": relic_holder_index,
-        # "selected_unit": selected_unit_index,
         "red_revive_count": red_revive_count,
         "blue_revive_count": blue_revive_count,
         "relic_taken": relic_taken,
@@ -60,7 +56,10 @@ func deserealize(json_string: String) -> Dictionary:
 
 func load_state(game_data: Dictionary) -> void:
     print("DEBUG: load_state called")
-    print("DEBUG: Current scene name: ", get_tree().current_scene.name if get_tree().current_scene else "No current scene")
+    if get_tree().current_scene:
+        print("DEBUG: Current scene name: ", get_tree().current_scene.name)
+    else:
+        print("DEBUG: No current scene")
     
     var unit_scene = preload("res://scenes/game/unit.tscn")
     
@@ -100,9 +99,9 @@ func load_state(game_data: Dictionary) -> void:
         var grid_pos_y = unit_data["grid_pos_y"]
         var grid_pos = Vector2i(grid_pos_x, grid_pos_y)
         var conflict_side = unit_data["conflict_side"]
-        print("Loading unit from data")
         var unit = game_scene.spawn_unit_at_tile(unit_scene, grid_pos, conflict_side)
         unit.current_hp = unit_data["current_hp"]
+        unit._update_hp_label()
         unit.is_relic_holder = unit_data["is_relic_holder"]
         unit.has_attacked_this_turn = unit_data["has_attacked_this_turn"]
         unit.attack_power = unit_data["attack_power"]

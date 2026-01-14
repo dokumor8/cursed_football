@@ -127,6 +127,7 @@ func drop_relic() -> void:
     print("Unit dropped relic")
 
 func _update_hp_label() -> void:
+    print("DEBUG: updating HP UI")
     # Update the HP label text
     if hp_label:
         hp_label.text = str(current_hp) + "/" + str(max_hp)

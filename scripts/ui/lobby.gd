@@ -60,7 +60,7 @@ func _on_join_button_pressed() -> void:
 
 func _on_back_button_pressed() -> void:
     # Disconnect if connected
-    if multiplayer_manager and multiplayer_manager.is_connected_m():
+    if multiplayer_manager and multiplayer_manager.has_active_connection():
         multiplayer_manager.disconnect_from_game()
     
     # Go back to main menu

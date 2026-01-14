@@ -16,7 +16,7 @@ func _ready() -> void:
     
     print("3. Testing connection status...")
     print("   Connection status:", mm.get_connection_status())
-    print("   Is connected:", mm.is_connected_m())
+    print("   Is connected:", mm.has_active_connection())
     print("   Is authority:", mm.is_authority())
     
     print("4. Testing local player ID...")

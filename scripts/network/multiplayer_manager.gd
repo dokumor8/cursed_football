@@ -186,7 +186,7 @@ func _get_current_game_state() -> String:
 func get_connection_status() -> String:
     return connection_status
 
-func is_connected_m() -> bool:
+func has_active_connection() -> bool:
     return connection_status in ["hosting", "connected", "server"]
 
 func is_authority() -> bool:
