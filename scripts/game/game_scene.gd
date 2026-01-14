@@ -21,8 +21,6 @@ var revival_highlight_atlas: Vector2i = GC.REVIVAL_HIGHLIGHT_ATLAS  # Different 
 var attack_highlight_atlas: Vector2i = GC.ATTACK_HIGHLIGHT_ATLAS  # Different tile for attack highlight
 var goal_highlight_atlas: Vector2i = GC.GOAL_HIGHLIGHT_ATLAS  # Different tile for goal highlight
 
-var relic_timer: int = 0
-
 # UI elements
 @onready var turn_indicator: Label = $UILayer/MainUIContainer/TopBar/TurnIndicator
 @onready var relic_status: Label = $UILayer/MainUIContainer/TopBar/RelicStatus
@@ -195,7 +193,7 @@ func spawn_relic_at_tile(grid_pos: Vector2i):
 
 func _pickup_relic(unit: Unit) -> void:
     # Unit picks up the relic with current global timer
-    unit.become_relic_holder(relic_timer)
+    unit.become_relic_holder(GS.relic_timer)
     GS.relic_holder = unit
 
     # Remove relic from obstacles (it's now carried by unit)
@@ -212,7 +210,7 @@ func _pickup_relic(unit: Unit) -> void:
     # Apply attack penalty (like attacking)
     unit.has_attacked_this_turn = true
     unit.movement_left = 0
-    print("Relic picked up by unit at", unit.grid_position, "with global timer:", relic_timer)
+    print("Relic picked up by unit at", unit.grid_position, "with global timer:", GS.relic_timer)
 
 
 func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
@@ -233,12 +231,12 @@ func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
     previous_holder.drop_relic()
 
     # New holder takes the relic with current global timer
-    new_holder.become_relic_holder(relic_timer)
+    new_holder.become_relic_holder(GS.relic_timer)
     GS.relic_holder = new_holder
 
     # Update relic status UI
     _update_relic_status()
-    print("Relic stolen by unit at", new_holder.grid_position, "with global timer:", relic_timer)
+    print("Relic stolen by unit at", new_holder.grid_position, "with global timer:", GS.relic_timer)
 
 
 func select_tile(coords: Vector2i) -> void:
@@ -576,10 +574,10 @@ func _switch_player_turn() -> void:
     else:
         # Increment global relic timer once per round (after Blue player's turn)
         if GS.relic_holder:
-            relic_timer += 1
+            GS.relic_timer += 1
             # Update relic holder's effects with new timer value
-            GS.relic_holder.apply_relic_effects(relic_timer)
-            print("Global relic timer incremented to:", relic_timer)
+            GS.relic_holder.apply_relic_effects(GS.relic_timer)
+            print("Global relic timer incremented to:", GS.relic_timer)
         GS.current_player = GC.PLAYER_RED
         print("Now it's Red player's turn")
 
@@ -722,10 +720,10 @@ func _update_turn_indicator() -> void:
 func _update_relic_status() -> void:
     if GS.relic_holder:
         var player_name = "Red" if GS.relic_holder.conflict_side == GC.PLAYER_RED else "Blue"
-        relic_status.text = "Relic: Held by " + player_name + " (Global Timer: " + str(relic_timer) + ")"
+        relic_status.text = "Relic: Held by " + player_name + " (Global Timer: " + str(GS.relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.RED if GS.relic_holder.conflict_side == GC.PLAYER_RED else Color.BLUE)
     else:
-        relic_status.text = "Relic: On ground at " + str(relic_position) + " (Timer: " + str(relic_timer) + ")"
+        relic_status.text = "Relic: On ground at " + str(relic_position) + " (Timer: " + str(GS.relic_timer) + ")"
         relic_status.add_theme_color_override("font_color", Color.WHITE)
 
 

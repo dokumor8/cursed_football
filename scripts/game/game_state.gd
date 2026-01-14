@@ -78,10 +78,12 @@ func load_state(game_data: Dictionary) -> void:
     red_revive_count = game_data["red_revive_count"]
     blue_revive_count = game_data["blue_revive_count"]
     relic_taken = game_data["relic_taken"]
+    # Always destroy any existing relic sprites
+    var relic_group = get_tree().get_nodes_in_group("relic")
+    for item in relic_group:
+        item.queue_free()
+    # Only spawn a new relic if it's not taken (on ground)
     if not relic_taken:
-        var relic_group = get_tree().get_nodes_in_group("relic")
-        for item in relic_group:
-            item.queue_free()
         game_scene.spawn_relic_at_tile(GC.INITIAL_RELIC_POSITION)
     relic_timer = game_data["relic_timer"]
     current_player = game_data["current_player"]
@@ -159,12 +161,16 @@ func request_move_rpc(unit_index: int, target_x: int, target_y: int) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_attack_rpc(attacker_index: int, target_index: int) -> void:
+    print("=== RPC: request_attack_rpc called ===")
     print("RPC: Received attack request from peer ", multiplayer.get_remote_sender_id())
+    print("RPC: attacker_index=", attacker_index, " target_index=", target_index)
+    print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
-        print("Processing attack request: unit ", attacker_index, " attacks unit ", target_index)
+        print("RPC: Processing attack request")
         _process_attack_request(attacker_index, target_index)
     else:
         print("RPC: Not server, ignoring attack request")
+    print("=== RPC: request_attack_rpc complete ===")
 
 @rpc("any_peer", "call_local", "reliable")
 func request_end_turn_rpc() -> void:

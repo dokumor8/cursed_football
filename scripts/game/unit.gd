@@ -56,6 +56,7 @@ func reset_turn() -> void:
 
 # Take damage from an attack
 func take_damage(damage: int) -> void:
+    print("DEBUG: take_damage called with damage=", damage, ", current_hp=", current_hp)
     current_hp -= damage
     if current_hp < 0:
         current_hp = 0
@@ -77,6 +78,8 @@ func attack(target: Unit) -> void:
         print("Unit attacked. Can't move anymore this turn.")
     elif attack_power <= 0:
         print("Unit cannot attack (attack power is 0)")
+    else:
+        print("Unit has already attacked this turn (has_attacked_this_turn = true)")
 
 # Become a relic holder (timer passed from game scene)
 func become_relic_holder(timer: int) -> void:
