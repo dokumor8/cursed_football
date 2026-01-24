@@ -154,37 +154,44 @@ func request_move_rpc(unit_index: int, target_x: int, target_y: int) -> void:
     print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
         print("Processing move request for unit ", unit_index, " to (", target_x, ", ", target_y, ")")
-        _process_move_request(unit_index, Vector2i(target_x, target_y))
+        _process_move_request(sender_id, unit_index, Vector2i(target_x, target_y))
     else:
         print("RPC: Not server, ignoring move request")
 
 @rpc("any_peer", "call_local", "reliable")
 func request_attack_rpc(attacker_index: int, target_index: int) -> void:
+    var sender_id = multiplayer.get_remote_sender_id()
     print("=== RPC: request_attack_rpc called ===")
-    print("RPC: Received attack request from peer ", multiplayer.get_remote_sender_id())
+    print("RPC: Received attack request from peer ", sender_id)
     print("RPC: attacker_index=", attacker_index, " target_index=", target_index)
     print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
         print("RPC: Processing attack request")
-        _process_attack_request(attacker_index, target_index)
+        _process_attack_request(sender_id, attacker_index, target_index)
     else:
         print("RPC: Not server, ignoring attack request")
     print("=== RPC: request_attack_rpc complete ===")
 
 @rpc("any_peer", "call_local", "reliable")
 func request_end_turn_rpc() -> void:
+    var sender_id = multiplayer.get_remote_sender_id()
+    print("RPC: Received end turn request from peer ", sender_id)
+    print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
         print("Processing end turn request")
-        _process_end_turn_request()
+        _process_end_turn_request(sender_id)
 
 @rpc("any_peer", "call_local", "reliable")
 func request_revive_rpc(player: int) -> void:
+    var sender_id = multiplayer.get_remote_sender_id()
+    print("RPC: Received revive request from peer ", sender_id, " for player ", player)
+    print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
         print("Processing revive request for player ", player)
-        _process_revive_request(player)
+        _process_revive_request(sender_id, player)
 
 # Process network requests
-func _process_move_request(unit_index: int, target_position: Vector2i) -> void:
+func _process_move_request(sender_id: int, unit_index: int, target_position: Vector2i) -> void:
     print("DEBUG: _process_move_request called with unit_index=", unit_index, " target=", target_position)
     var units = get_tree().get_nodes_in_group("units")
     print("DEBUG: Found ", units.size(), " units in group")
@@ -193,10 +200,22 @@ func _process_move_request(unit_index: int, target_position: Vector2i) -> void:
         var unit = units[unit_index]
         print("DEBUG: Unit found: side=", unit.conflict_side, " pos=", unit.grid_position, " movement_left=", unit.movement_left)
         
-        # Check if it's this unit's player's turn
-        if unit.conflict_side != current_player:
-            print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
-            return
+        # Check if sender is authorized to control this unit
+        var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+        if multiplayer_manager:
+            var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
+            if sender_player_id != unit.conflict_side:
+                print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " unit side=", unit.conflict_side)
+                return
+            # Also check if it's this player's turn
+            if unit.conflict_side != current_player:
+                print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
+                return
+        else:
+            # Fallback: check if it's this unit's player's turn (for P2P mode)
+            if unit.conflict_side != current_player:
+                print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
+                return
             
         # Check if unit can move (simplified validation)
         if unit.movement_left <= 0:
@@ -227,7 +246,7 @@ func _process_move_request(unit_index: int, target_position: Vector2i) -> void:
     else:
         print("DEBUG: Invalid unit index: ", unit_index)
 
-func _process_attack_request(attacker_index: int, target_index: int) -> void:
+func _process_attack_request(sender_id: int, attacker_index: int, target_index: int) -> void:
     print("DEBUG: _process_attack_request called with attacker=", attacker_index, " target=", target_index)
     var units = get_tree().get_nodes_in_group("units")
     print("DEBUG: Found ", units.size(), " units in group")
@@ -238,10 +257,22 @@ func _process_attack_request(attacker_index: int, target_index: int) -> void:
         print("DEBUG: Attacker: side=", attacker.conflict_side, " pos=", attacker.grid_position, " has_attacked=", attacker.has_attacked_this_turn)
         print("DEBUG: Target: side=", target.conflict_side, " pos=", target.grid_position)
         
-        # Check if it's attacker's player's turn
-        if attacker.conflict_side != current_player:
-            print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
-            return
+        # Check if sender is authorized to control this attacker
+        var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+        if multiplayer_manager:
+            var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
+            if sender_player_id != attacker.conflict_side:
+                print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " attacker side=", attacker.conflict_side)
+                return
+            # Also check if it's this player's turn
+            if attacker.conflict_side != current_player:
+                print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
+                return
+        else:
+            # Fallback: check if it's attacker's player's turn (for P2P mode)
+            if attacker.conflict_side != current_player:
+                print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
+                return
             
         # Check if attacker can attack
         if attacker.has_attacked_this_turn:
@@ -269,20 +300,46 @@ func _process_attack_request(attacker_index: int, target_index: int) -> void:
     else:
         print("DEBUG: Invalid attacker or target index")
 
-func _process_end_turn_request() -> void:
+func _process_end_turn_request(sender_id: int) -> void:
+    print("DEBUG: _process_end_turn_request called from sender ", sender_id)
+
+    # Check if sender is authorized to end turn
+    var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+    if multiplayer_manager:
+        var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
+        if sender_player_id != current_player:
+            print("DEBUG: Sender not authorized to end turn. Sender player ID=", sender_player_id, " current_player=", current_player)
+            return
+    else:
+        # P2P mode: basic validation
+        print("DEBUG: P2P mode, accepting end turn request")
+
     # Switch player
     current_player = GC.PLAYER_BLUE if current_player == GC.PLAYER_RED else GC.PLAYER_RED
-    
+
     # Reset unit states for new player
     for unit in get_tree().get_nodes_in_group("units"):
         if unit.conflict_side == current_player:
             unit.movement_left = unit.speed
             unit.has_attacked_this_turn = false
-    
+
     # Sync updated state
     _sync_game_state()
 
-func _process_revive_request(player: int) -> void:
+func _process_revive_request(sender_id: int, player: int) -> void:
+    print("DEBUG: _process_revive_request called from sender ", sender_id, " for player ", player)
+
+    # Check if sender is authorized to revive for this player
+    var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+    if multiplayer_manager:
+        var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
+        if sender_player_id != player:
+            print("DEBUG: Sender not authorized to revive for player. Sender player ID=", sender_player_id, " requested player=", player)
+            return
+    else:
+        # P2P mode: basic validation
+        print("DEBUG: P2P mode, accepting revive request")
+
     # Simplified revive logic
     var game_scenes = get_tree().get_nodes_in_group("main_scene")
     if game_scenes.size() == 0:
@@ -291,7 +348,7 @@ func _process_revive_request(player: int) -> void:
     var game_scene = game_scenes[0]
     if game_scene.has_method("revive_unit"):
         game_scene.revive_unit(player)
-        
+
         # Sync updated state
         _sync_game_state()
 

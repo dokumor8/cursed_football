@@ -63,12 +63,12 @@ func _ready() -> void:
 
 func _initialize_game() -> void:
     print("Initializing game...")
-    
+
     print("Spawning Red units at: ", GC.get_spawn_positions(GC.PLAYER_RED))
     for location in GC.get_spawn_positions(GC.PLAYER_RED):
         var unit = spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
         print("  Spawned Red unit at ", location)
-    
+
     print("Spawning Blue units at: ", GC.get_spawn_positions(GC.PLAYER_BLUE))
     for location in GC.get_spawn_positions(GC.PLAYER_BLUE):
         var unit = spawn_unit_at_tile(UnitScene, location, GC.PLAYER_BLUE)
@@ -78,6 +78,11 @@ func _initialize_game() -> void:
     print("Spawning relic at: ", relic_position)
     spawn_relic_at_tile(relic_position)
     print("Game initialization complete")
+
+    # Skip UI initialization if we're a dedicated server
+    if multiplayer_manager and multiplayer_manager.is_server:
+        print("Dedicated server mode: Skipping UI initialization")
+        return
 
     # Initialize UI
     _update_turn_indicator()
@@ -394,10 +399,14 @@ func _handle_tile_click(tile_coords: Vector2i) -> void:
         clear_selection()
 
 func _unhandled_input(event: InputEvent) -> void:
+    # Skip input processing if we're a dedicated server
+    if multiplayer_manager and multiplayer_manager.is_server:
+        return
+
     if event is InputEventMouseButton \
     and event.button_index == MOUSE_BUTTON_LEFT \
     and event.pressed:
-        
+
         var local_pos: Vector2 = terrain_layer.to_local(get_global_mouse_position())
         var tile_coords: Vector2i = terrain_layer.local_to_map(local_pos)
 
