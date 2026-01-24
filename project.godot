@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GC="*res://scripts/config/GameConstants.gd"
 GS="*res://scripts/game/game_state.gd"
+NetworkManager="*res://scripts/network/multiplayer_manager.gd"
 
 [display]
 

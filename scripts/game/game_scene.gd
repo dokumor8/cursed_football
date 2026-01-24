@@ -12,7 +12,7 @@ var relic_instance: Node2D
 var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION  # Center of map
 
 # Multiplayer
-var multiplayer_manager: MultiplayerManager = null
+var multiplayer_manager: MultiplayerManager = NetworkManager
 var network_status_label: Label = null
 
 # Revival system
@@ -104,19 +104,14 @@ func _initialize_game() -> void:
 func _initialize_multiplayer() -> void:
     print("DEBUG: _initialize_multiplayer() called")
     # Check if multiplayer manager exists
-    multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+    multiplayer_manager = get_node_or_null("/root/NetworkManager")
     if multiplayer_manager:
         print("DEBUG: Found existing MultiplayerManager at /root")
         print("DEBUG: Connection status: ", multiplayer_manager.get_connection_status())
         print("DEBUG: Is connected: ", multiplayer_manager.has_active_connection())
         print("DEBUG: Is authority: ", multiplayer_manager.is_authority())
     else:
-        print("DEBUG: No MultiplayerManager found, creating new one")
-        # Create new multiplayer manager
-        multiplayer_manager = preload("res://scripts/network/multiplayer_manager.gd").new()
-        multiplayer_manager.name = "MultiplayerManager"
-        get_tree().root.add_child(multiplayer_manager)
-        print("DEBUG: Created new MultiplayerManager")
+        print("DEBUG: No MultiplayerManager found, but it should always exist as an autoload")
     
     # Connect signals
     multiplayer_manager.game_state_received.connect(_on_game_state_received)

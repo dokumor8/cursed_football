@@ -11,11 +11,7 @@ func _ready() -> void:
     # Check if we're running as a dedicated server
     if OS.has_feature("dedicated_server"):
         print("Dedicated server mode detected, starting server...")
-        # Create multiplayer manager and start dedicated server
-        var multiplayer_manager = preload("res://scripts/network/multiplayer_manager.gd").new()
-        multiplayer_manager.name = "MultiplayerManager"
-        get_tree().root.add_child(multiplayer_manager)
-        multiplayer_manager.start_dedicated_server()
+        NetworkManager.start_dedicated_server()
         # Load game scene (server will run without UI)
         get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
         return

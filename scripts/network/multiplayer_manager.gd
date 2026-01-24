@@ -77,7 +77,7 @@ func start_dedicated_server(port: int = DEFAULT_PORT) -> void:
     var result = peer.create_server(port, MAX_PLAYERS)
     
     if result == OK:
-        multiplayer.multiplayer_peer = peer
+        multiplayer.set_multiplayer_peer(peer)
         is_host = false
         is_server = true
         connection_status = "server"
