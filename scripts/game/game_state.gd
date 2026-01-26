@@ -84,6 +84,8 @@ func load_state(game_data: Dictionary) -> void:
     # Only spawn a new relic if it's not taken (on ground)
     if not relic_taken:
         game_scene.spawn_relic_at_tile(GC.INITIAL_RELIC_POSITION)
+    else:
+        game_scene.obstacles[GC.INITIAL_RELIC_POSITION] = false
     relic_timer = game_data["relic_timer"]
     current_player = game_data["current_player"]
 
@@ -101,12 +103,13 @@ func load_state(game_data: Dictionary) -> void:
         var conflict_side = unit_data["conflict_side"]
         var unit = game_scene.spawn_unit_at_tile(unit_scene, grid_pos, conflict_side)
         unit.current_hp = unit_data["current_hp"]
-        unit._update_hp_label()
         unit.is_relic_holder = unit_data["is_relic_holder"]
         unit.has_attacked_this_turn = unit_data["has_attacked_this_turn"]
         unit.attack_power = unit_data["attack_power"]
         unit.speed = unit_data["speed"]
         unit.movement_left = unit_data["movement_left"]
+        unit._update_hp_label()
+        unit._update_relic_sprite()
         if loop_index == relic_holder_index:
             relic_holder = unit
         loop_index += 1
@@ -131,6 +134,18 @@ func load_game():
     var json_string = save_file.get_line()
     var game_data = deserealize(json_string)
     load_state(game_data)
+
+
+func load_game_from_server(state_json):
+    var game_data = deserealize(state_json)
+    load_state(game_data)
+
+
+# Network signal handlers
+func _on_game_state_received(state_json: String) -> void:
+    print("Game scene received state sync from host")
+    load_game_from_server(state_json)
+
 
 # Network RPC functions
 @rpc("authority", "call_local", "reliable")
@@ -189,6 +204,19 @@ func request_revive_rpc(player: int) -> void:
     if multiplayer.is_server():
         print("Processing revive request for player ", player)
         _process_revive_request(sender_id, player)
+
+@rpc("any_peer", "call_local", "reliable")
+func request_pick_up_rpc(unit_index: int) -> void:
+    var sender_id = multiplayer.get_remote_sender_id()
+    print("RPC: Received pick up request from peer ", sender_id, " for unit ", unit_index)
+    print("RPC: Is server? ", multiplayer.is_server())
+    if multiplayer.is_server():
+        print("Processing pick up request for unit ", unit_index)
+        _process_pick_up_request(sender_id, unit_index)
+    else:
+        print("RPC: Not server, ignoring move request")
+
+
 
 # Process network requests
 func _process_move_request(sender_id: int, unit_index: int, target_position: Vector2i) -> void:
@@ -351,6 +379,44 @@ func _process_revive_request(sender_id: int, player: int) -> void:
 
         # Sync updated state
         _sync_game_state()
+
+
+func _process_pick_up_request(sender_id: int, unit_index: int):
+    print("DEBUG: _process_pick_up_request called with unit_index=", unit_index)
+    var units = get_tree().get_nodes_in_group("units")
+    print("DEBUG: Found ", units.size(), " units in group")
+    
+    if unit_index >= 0 and unit_index < units.size():
+        var unit: Unit = units[unit_index]
+        print("DEBUG: Unit found: side=", unit.conflict_side, " pos=", unit.grid_position, " movement_left=", unit.movement_left)
+        
+        # Check if sender is authorized to control this unit
+        var sender_player_id = MM.get_player_id_for_peer(sender_id)
+        if sender_player_id != unit.conflict_side:
+            print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " unit side=", unit.conflict_side)
+            return
+        # Also check if it's this player's turn
+        if unit.conflict_side != current_player:
+            print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
+            return
+                        
+        # Pick up the relic
+        var game_scene = get_tree().get_nodes_in_group("main_scene")
+        print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
+        if game_scene.size() > 0 and game_scene[0].has_method("_pickup_relic"):
+            var scene = game_scene[0]
+            # Check if tiles are adjacent
+            if scene._are_tiles_adjacent(unit.grid_position, GC.INITIAL_RELIC_POSITION):
+                scene._pickup_relic(unit)            
+                # Sync updated state
+                _sync_game_state()
+            else:
+                print("DEBUG: Tile not reachable for movement")
+        else:
+            print("DEBUG: No game scene found or missing move_unit method")
+    else:
+        print("DEBUG: Invalid unit index: ", unit_index)
+
 
 # Sync game state to all clients
 func _sync_game_state() -> void:

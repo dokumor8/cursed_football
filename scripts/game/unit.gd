@@ -1,6 +1,8 @@
 class_name Unit
 extends Node2D
 
+signal unit_died
+
 @export var conflict_side: int = GC.PLAYER_RED
 @export var grid_position: Vector2i
 @export var speed: int = GC.UNIT_SPEED
@@ -60,9 +62,30 @@ func take_damage(damage: int) -> void:
     current_hp -= damage
     if current_hp < 0:
         current_hp = 0
+        _handle_unit_death()
     print("Unit took ", damage, " damage. HP: ", current_hp, "/", max_hp)
     # Update HP label
     _update_hp_label()
+
+
+func _handle_unit_death() -> void:
+    # Remove unit from the board
+    print("Unit died at", grid_position)
+
+    # Remove the unit node from the scene
+    queue_free()
+    remove_from_group("units")
+
+    # Increment revive count for the player who lost the unit
+    if conflict_side == GC.PLAYER_RED:
+        GS.red_revive_count += GC.REVIVE_TOKEN_REWARD # Red player killed a blue unit
+        print("Red player gets a revive token. Total:", GS.red_revive_count)
+    else:
+        GS.blue_revive_count += GC.REVIVE_TOKEN_REWARD # Blue player killed a red unit
+        print("Blue player gets a revive token. Total:", GS.blue_revive_count)
+
+    unit_died.emit()
+
 
 # Check if unit is dead
 func is_dead() -> bool:

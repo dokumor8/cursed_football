@@ -1,6 +1,9 @@
 class_name MultiplayerManager
 extends Node
 
+# On/Off
+var initialized = false
+
 # Signals for connection events
 signal connection_succeeded
 signal connection_failed
@@ -33,6 +36,12 @@ func _ready() -> void:
     multiplayer.connected_to_server.connect(_on_connected_to_server)
     multiplayer.connection_failed.connect(_on_connection_failed)
     multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+func start_manager() -> void:
+    initialized = true
+
+func stop_manager() -> void:
+    initialized = false
 
 # Host a game (P2P mode)
 func host_game(port: int = DEFAULT_PORT) -> void:

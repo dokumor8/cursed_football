@@ -11,7 +11,7 @@ func _ready() -> void:
     # Check if we're running as a dedicated server
     if OS.has_feature("dedicated_server"):
         print("Dedicated server mode detected, starting server...")
-        NetworkManager.start_dedicated_server()
+        MM.start_dedicated_server()
         # Load game scene (server will run without UI)
         get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
         return

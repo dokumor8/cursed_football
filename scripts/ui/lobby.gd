@@ -6,8 +6,6 @@ extends Control
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 @onready var back_button: Button = $VBoxContainer/BackButton
 
-var multiplayer_manager: MultiplayerManager = null
-
 func _ready() -> void:
     # Initialize multiplayer manager
     _initialize_multiplayer_manager()
@@ -25,18 +23,13 @@ func _ready() -> void:
 
 func _initialize_multiplayer_manager() -> void:
     # Check if multiplayer manager already exists
-    multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
-    if not multiplayer_manager:
-        # Create new multiplayer manager
-        multiplayer_manager = preload("res://scripts/network/multiplayer_manager.gd").new()
-        multiplayer_manager.name = "MultiplayerManager"
-        get_tree().root.add_child(multiplayer_manager)
-    
+    if not MM.initialized:
+        MM.start_manager()
     # Connect multiplayer manager signals
-    multiplayer_manager.connection_succeeded.connect(_on_connection_succeeded)
-    multiplayer_manager.connection_failed.connect(_on_connection_failed)
-    multiplayer_manager.player_connected.connect(_on_player_connected)
-    multiplayer_manager.player_disconnected.connect(_on_player_disconnected)
+    MM.connection_succeeded.connect(_on_connection_succeeded)
+    MM.connection_failed.connect(_on_connection_failed)
+    MM.player_connected.connect(_on_player_connected)
+    MM.player_disconnected.connect(_on_player_disconnected)
 
 func _on_host_button_pressed() -> void:
     _update_status("Hosting game...")
@@ -44,7 +37,7 @@ func _on_host_button_pressed() -> void:
     join_button.disabled = true
     back_button.disabled = true
     
-    multiplayer_manager.host_game()
+    MM.host_game()
 
 func _on_join_button_pressed() -> void:
     var ip = ip_address.text.strip_edges()
@@ -56,18 +49,18 @@ func _on_join_button_pressed() -> void:
     host_button.disabled = true
     join_button.disabled = true
     
-    multiplayer_manager.join_game(ip)
+    MM.join_game(ip)
 
 func _on_back_button_pressed() -> void:
     # Disconnect if connected
-    if multiplayer_manager and multiplayer_manager.has_active_connection():
-        multiplayer_manager.disconnect_from_game()
+    if MM.initialized and MM.has_active_connection():
+        MM.disconnect_from_game()
     
     # Go back to main menu
     get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 func _on_connection_succeeded() -> void:
-    if multiplayer_manager.is_host:
+    if MM.is_host:
         # Host: Wait for client to connect
         _update_status("Waiting for player to join...", Color.YELLOW)
         # Don't transition yet - wait for player_connected signal
@@ -90,7 +83,7 @@ func _on_player_connected(peer_id: int) -> void:
     _update_status("Player " + str(peer_id) + " connected", Color.YELLOW)
     
     # If we're the host and a player connected, transition to game
-    if multiplayer_manager.is_host:
+    if MM.is_host:
         _update_status("Player connected! Starting game...", Color.GREEN)
         
         # Wait a moment then transition to game
@@ -109,8 +102,8 @@ func _update_status(message: String, color: Color = Color.WHITE) -> void:
 
 # Clean up on exit
 func _exit_tree() -> void:
-    if multiplayer_manager:
-        multiplayer_manager.connection_succeeded.disconnect(_on_connection_succeeded)
-        multiplayer_manager.connection_failed.disconnect(_on_connection_failed)
-        multiplayer_manager.player_connected.disconnect(_on_player_connected)
-        multiplayer_manager.player_disconnected.disconnect(_on_player_disconnected)
+    if MM:
+        MM.connection_succeeded.disconnect(_on_connection_succeeded)
+        MM.connection_failed.disconnect(_on_connection_failed)
+        MM.player_connected.disconnect(_on_player_connected)
+        MM.player_disconnected.disconnect(_on_player_disconnected)
