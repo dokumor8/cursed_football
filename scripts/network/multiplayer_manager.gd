@@ -11,6 +11,12 @@ signal player_connected(peer_id: int)
 signal player_disconnected(peer_id: int)
 signal game_state_received(state_json: String)
 
+# Lobby signals
+signal player_id_assigned(player_id: int)  # Client: when server assigns our player ID
+signal player_ready_changed(player_id: int, is_ready: bool)  # When any player's ready state changes
+signal lobby_state_updated(lobby_state: Dictionary)  # Full lobby state from server
+signal game_starting()  # When server starts the game
+
 # Network configuration
 const DEFAULT_PORT: int = 9999
 const MAX_PLAYERS: int = 2
@@ -29,6 +35,11 @@ var assigned_player_id: int = 0  # Local player's assigned ID (0 for server, 1/2
 var peer_to_player_id: Dictionary = {}  # Server only: peer_id -> player_id
 var next_player_id: int = 1  # Server only: next player ID to assign
 
+# Lobby state (server only)
+var player_ready_states: Dictionary = {}  # player_id -> bool
+var player_connections: Dictionary = {}  # player_id -> bool (connected/disconnected)
+var lobby_state_timer: Timer = null  # For periodic lobby state updates
+
 func _ready() -> void:
     # Connect multiplayer signals
     multiplayer.peer_connected.connect(_on_peer_connected)
@@ -36,6 +47,13 @@ func _ready() -> void:
     multiplayer.connected_to_server.connect(_on_connected_to_server)
     multiplayer.connection_failed.connect(_on_connection_failed)
     multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+    # Initialize lobby timer (server only, created when needed)
+    lobby_state_timer = Timer.new()
+    lobby_state_timer.wait_time = 0.5  # Update twice per second
+    lobby_state_timer.autostart = false
+    lobby_state_timer.timeout.connect(_on_lobby_state_timer_timeout)
+    add_child(lobby_state_timer)
 
 func start_manager() -> void:
     initialized = true
@@ -151,6 +169,7 @@ func is_local_player_turn(current_player: int) -> bool:
 func assign_player_id_rpc(player_id: int) -> void:
     print("Received assigned player ID: ", player_id)
     assigned_player_id = player_id
+    player_id_assigned.emit(player_id)
 
 # Send game state to all players
 @rpc("authority", "call_local", "reliable")
@@ -185,6 +204,14 @@ func _on_peer_connected(peer_id: int) -> void:
         # Notify the client of their assigned player ID
         assign_player_id_rpc.rpc_id(peer_id, player_id)
 
+        # Initialize lobby state for this player
+        player_ready_states[player_id] = false
+        _update_lobby_connections()
+
+        # Start timer if not already running
+        if peer_to_player_id.size() > 0 and lobby_state_timer.is_stopped():
+            lobby_state_timer.start()
+
     # Note: We don't send game state here anymore
     # Game state will be sent by the game scene after it loads
 
@@ -197,6 +224,12 @@ func _on_peer_disconnected(peer_id: int) -> void:
         var player_id = peer_to_player_id[peer_id]
         peer_to_player_id.erase(peer_id)
         print("Removed player ID ", player_id, " for disconnected peer ", peer_id)
+        # Clean up lobby state
+        player_ready_states.erase(player_id)
+        _update_lobby_connections()
+        # Stop timer if no players left
+        if peer_to_player_id.size() == 0 and not lobby_state_timer.is_stopped():
+            lobby_state_timer.stop()
         # Could potentially reassign this player ID later if needed
 
 func _on_connected_to_server() -> void:
@@ -259,3 +292,112 @@ func reset_player_assignments() -> void:
         peer_to_player_id.clear()
         next_player_id = 1
         print("Reset player assignments")
+
+# Lobby RPC methods
+@rpc("authority", "call_local", "reliable")
+func broadcast_player_ready_changed(player_id: int, is_ready: bool) -> void:
+    # Clients receive this from server and emit local signal
+    print("Client: Player ", player_id, " ready state changed to ", is_ready)
+    player_ready_changed.emit(player_id, is_ready)
+
+@rpc("any_peer", "call_local", "reliable")
+func set_player_ready(is_ready: bool) -> void:
+    if not multiplayer.is_server():
+        print("Client: Ignoring set_player_ready call - not server")
+        return
+
+    var sender_id = multiplayer.get_remote_sender_id()
+    var player_id = get_player_id_for_peer(sender_id)
+
+    if player_id == 0:
+        print("Server: Could not find player ID for peer ", sender_id)
+        return
+
+    print("Server: Player ", player_id, " ready state changed to ", is_ready)
+    player_ready_states[player_id] = is_ready
+
+    # Emit signal locally (for server UI if any)
+    player_ready_changed.emit(player_id, is_ready)
+
+    # Broadcast ready state change to all players
+    broadcast_player_ready_changed.rpc(player_id, is_ready)
+
+    # Check if both players are ready
+    _check_game_start()
+
+# Server: broadcast lobby state to all clients
+@rpc("authority", "call_local", "reliable")
+func update_lobby_state(lobby_state: Dictionary) -> void:
+    # Clients receive this and update their UI
+    print("Client: Received lobby state update")
+    lobby_state_updated.emit(lobby_state)
+
+# Server: notify clients game is starting
+@rpc("authority", "call_local", "reliable")
+func start_game() -> void:
+    print("Server: Starting game")
+    game_starting.emit()
+
+# Timer callback for periodic lobby state updates
+func _on_lobby_state_timer_timeout() -> void:
+    if is_server:
+        _broadcast_lobby_state()
+
+# Server: broadcast current lobby state to all clients
+func _broadcast_lobby_state() -> void:
+    if not is_server:
+        return
+
+    var lobby_state = {
+        "players": {}
+    }
+
+    # Build player states
+    for player_id in range(1, MAX_PLAYERS + 1):
+        var connected = player_connections.get(player_id, false)
+        var is_ready = player_ready_states.get(player_id, false)
+        lobby_state["players"][player_id] = {
+            "connected": connected,
+            "ready": is_ready
+        }
+
+    update_lobby_state.rpc(lobby_state)
+
+# Server: check if both players are ready and start game
+func _check_game_start() -> void:
+    if not is_server:
+        return
+
+    var all_ready = true
+    var all_connected = true
+
+    for player_id in range(1, MAX_PLAYERS + 1):
+        if not player_connections.get(player_id, false):
+            all_connected = false
+            break
+        if not player_ready_states.get(player_id, false):
+            all_ready = false
+            break
+
+    if all_connected and all_ready:
+        print("Server: All players ready, starting game in 3 seconds...")
+        # Wait a moment then start
+        await get_tree().create_timer(3.0).timeout
+        start_game.rpc()
+
+        # Actually load game scene on server
+        get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
+
+# Server: update lobby state when player connects/disconnects
+func _update_lobby_connections() -> void:
+    if not is_server:
+        return
+
+    # Update connection states
+    player_connections.clear()
+    for peer_id in peer_to_player_id:
+        var player_id = peer_to_player_id[peer_id]
+        player_connections[player_id] = true
+
+    # Broadcast updated lobby state
+    _broadcast_lobby_state()

@@ -20,26 +20,19 @@ grow_horizontal = 2
 grow_vertical = 2
 alignment = 1
 
-[node name="HostButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Host Game"
-size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 50)
-
-[node name="JoinButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "Join Game"
-size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 50)
-
 [node name="IPAddress" type="LineEdit" parent="VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter IP Address"
+placeholder_text = "Enter Server IP (default: localhost)"
 size_flags_horizontal = 4
 size_flags_vertical = 4
 custom_minimum_size = Vector2(200, 40)
+
+[node name="ConnectButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Connect to Server"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(200, 50)
 
 [node name="StatusLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -49,6 +42,72 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 custom_minimum_size = Vector2(300, 40)
 text = "Ready to connect"
+
+[node name="PlayerSlotsContainer" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(300, 150)
+
+[node name="PlayerRedSlot" type="HBoxContainer" parent="PlayerSlotsContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="RedLabel" type="Label" parent="PlayerRedSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Red Player:"
+
+[node name="RedStatus" type="Label" parent="PlayerRedSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Not Connected"
+
+[node name="RedReady" type="Label" parent="PlayerRedSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Not Ready"
+
+[node name="PlayerBlueSlot" type="HBoxContainer" parent="PlayerSlotsContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="BlueLabel" type="Label" parent="PlayerBlueSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Blue Player:"
+
+[node name="BlueStatus" type="Label" parent="PlayerBlueSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Not Connected"
+
+[node name="BlueReady" type="Label" parent="PlayerBlueSlot"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(100, 30)
+text = "Not Ready"
+
+[node name="ReadyButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Ready"
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_minimum_size = Vector2(200, 50)
+disabled = true
 
 [node name="BackButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2

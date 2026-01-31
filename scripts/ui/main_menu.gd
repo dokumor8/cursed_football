@@ -13,7 +13,8 @@ func _ready() -> void:
         print("Dedicated server mode detected, starting server...")
         MM.start_dedicated_server()
         # Load game scene (server will run without UI)
-        get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
+        # call_deferred("change_scene_to_file", get_tree(), "res://scenes/game/game_scene.tscn")
+        get_tree().change_scene_to_file.call_deferred("res://scenes/game/game_scene.tscn")
         return
 
     # Connect button signals
