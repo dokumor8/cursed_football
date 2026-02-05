@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=4 uid="uid://eiseghgy1gp4"]
+[gd_scene load_steps=9 format=4 uid="uid://eiseghgy1gp4"]
 
 [ext_resource type="Script" uid="uid://u7ag56bjiyh2" path="res://scripts/game/game_scene.gd" id="1_mixcd"]
 [ext_resource type="Texture2D" uid="uid://bsb8q6nukwrny" path="res://assets/images/tiles/hex2.png" id="2_ydf3n"]
 [ext_resource type="Texture2D" uid="uid://cfs4sw0msmtsx" path="res://assets/images/tiles/hex_highlight2.png" id="3_ydf3n"]
+[ext_resource type="Script" uid="uid://lye14jpm20yx" path="res://scripts/game/unit_selection.gd" id="4_6hqhf"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6hqhf"]
 texture = ExtResource("2_ydf3n")
@@ -123,3 +124,7 @@ size_flags_vertical = 3
 
 [node name="VictoryMessage" type="Label" parent="UILayer/MainUIContainer"]
 layout_mode = 2
+
+[node name="UnitSelection" type="Node2D" parent="."]
+script = ExtResource("4_6hqhf")
+metadata/_custom_type_script = "uid://lye14jpm20yx"

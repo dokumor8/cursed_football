@@ -1,6 +1,5 @@
 extends Node
 
-
 var relic_holder: Unit = null
 var relic_timer = 0
 var relic_taken = false
@@ -431,3 +430,8 @@ func _sync_game_state() -> void:
     else:
         print("GS: Not server, not syncing")
     print("=== GS._sync_game_state() complete ===")
+
+
+@rpc("any_peer", "call_local", "reliable")
+func request_game_sync() -> void:
+    _sync_game_state()

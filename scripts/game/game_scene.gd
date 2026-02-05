@@ -13,7 +13,7 @@ var obstacles: Dictionary = {}
 var UnitScene: PackedScene = preload("res://scenes/game/unit.tscn")
 var UnitSelectionScene: PackedScene = preload("res://scenes/game/unit_selection.tscn")
 var RelicScene: PackedScene = preload("res://scenes/game/relic.tscn")
-var unit_selection: UnitSelection
+@onready var unit_selection: UnitSelection = $UnitSelection 
 var relic_instance: Node2D
 var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION # Center of map
 
@@ -41,10 +41,7 @@ var game_over_menu: PopupPanel = null
 
 # == Initialization ==
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-    print("=== GameScene._ready() called ===")
-
     unit_selection = UnitSelectionScene.instantiate()
     unit_selection.visible = false
     add_child(unit_selection)
@@ -69,11 +66,16 @@ func _ready() -> void:
         
     
     # If we're in multiplayer and the server, send initial state to client
-    if MM.initialized and MM.has_active_connection():
-        if MM.is_authority():
-            print("Host: Game initialized, sending state to client...")
-            # Send initial state to client
-            GS._sync_game_state()
+    if MM.initialized and MM.is_server:
+        print("Host: Game initialized, sending state to client...")
+        # Send initial state to client
+        GS._sync_game_state()
+
+    # if we're a client that just finished initializing UI,
+    # request game state from the server
+    if MM.initialized and not MM.is_server:
+        GS.request_game_sync.rpc_id(1)
+        
     
     print("=== GameScene._ready() complete ===")
 
@@ -795,7 +797,8 @@ func _on_end_turn_button_pressed() -> void:
 
 
 func _on_reset_button_pressed() -> void:
-    GS.load_game()
+    print_debug("DEBUGGING A VERSION WITHOUT RESETTING, THE BUTTON IS NOT WORKING")
+    # GS.load_game()
 
 
 func _on_revive_button_pressed() -> void:

@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://dr7ywpt3bmxmh"]
 
-[ext_resource type="Script" path="res://scripts/ui/lobby.gd" id="1_8v8jv"]
+[ext_resource type="Script" uid="uid://c5hb3u1j7sey" path="res://scripts/ui/lobby.gd" id="1_8v8jv"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -21,97 +21,90 @@ grow_vertical = 2
 alignment = 1
 
 [node name="IPAddress" type="LineEdit" parent="VBoxContainer"]
+custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
-placeholder_text = "Enter Server IP (default: localhost)"
 size_flags_horizontal = 4
 size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 40)
+placeholder_text = "Enter Server IP (default: localhost)"
 
 [node name="ConnectButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
-text = "Connect to Server"
 size_flags_horizontal = 4
 size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 50)
+text = "Connect to Server"
 
 [node name="StatusLabel" type="Label" parent="VBoxContainer"]
+custom_minimum_size = Vector2(300, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+text = "Ready to connect"
 horizontal_alignment = 1
 vertical_alignment = 1
-size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(300, 40)
-text = "Ready to connect"
 
 [node name="PlayerSlotsContainer" type="VBoxContainer" parent="VBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
 custom_minimum_size = Vector2(300, 150)
-
-[node name="PlayerRedSlot" type="HBoxContainer" parent="PlayerSlotsContainer"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="RedLabel" type="Label" parent="PlayerRedSlot"]
+[node name="PlayerRedSlot" type="HBoxContainer" parent="VBoxContainer/PlayerSlotsContainer"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+
+[node name="RedLabel" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerRedSlot"]
 custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+size_flags_horizontal = 4
 text = "Red Player:"
 
-[node name="RedStatus" type="Label" parent="PlayerRedSlot"]
+[node name="RedStatus" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerRedSlot"]
+custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(100, 30)
 text = "Not Connected"
 
-[node name="RedReady" type="Label" parent="PlayerRedSlot"]
+[node name="RedReady" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerRedSlot"]
+custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(100, 30)
 text = "Not Ready"
 
-[node name="PlayerBlueSlot" type="HBoxContainer" parent="PlayerSlotsContainer"]
+[node name="PlayerBlueSlot" type="HBoxContainer" parent="VBoxContainer/PlayerSlotsContainer"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="BlueLabel" type="Label" parent="PlayerBlueSlot"]
+[node name="BlueLabel" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerBlueSlot"]
+custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(100, 30)
 text = "Blue Player:"
 
-[node name="BlueStatus" type="Label" parent="PlayerBlueSlot"]
+[node name="BlueStatus" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerBlueSlot"]
+custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(100, 30)
 text = "Not Connected"
 
-[node name="BlueReady" type="Label" parent="PlayerBlueSlot"]
+[node name="BlueReady" type="Label" parent="VBoxContainer/PlayerSlotsContainer/PlayerBlueSlot"]
+custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-custom_minimum_size = Vector2(100, 30)
 text = "Not Ready"
 
 [node name="ReadyButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
-text = "Ready"
 size_flags_horizontal = 4
 size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 50)
 disabled = true
+text = "Ready"
 
 [node name="BackButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
-text = "Back to Menu"
 size_flags_horizontal = 4
 size_flags_vertical = 4
-custom_minimum_size = Vector2(200, 50)
+text = "Back to Menu"

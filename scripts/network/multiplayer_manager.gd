@@ -18,7 +18,7 @@ signal lobby_state_updated(lobby_state: Dictionary)  # Full lobby state from ser
 signal game_starting()  # When server starts the game
 
 # Network configuration
-const DEFAULT_PORT: int = 9999
+const DEFAULT_PORT: int = 19999
 const MAX_PLAYERS: int = 2
 
 # Network peer
@@ -38,7 +38,7 @@ var next_player_id: int = 1  # Server only: next player ID to assign
 # Lobby state (server only)
 var player_ready_states: Dictionary = {}  # player_id -> bool
 var player_connections: Dictionary = {}  # player_id -> bool (connected/disconnected)
-var lobby_state_timer: Timer = null  # For periodic lobby state updates
+# var lobby_state_timer: Timer = null  # For periodic lobby state updates
 
 func _ready() -> void:
     # Connect multiplayer signals
@@ -48,53 +48,19 @@ func _ready() -> void:
     multiplayer.connection_failed.connect(_on_connection_failed)
     multiplayer.server_disconnected.connect(_on_server_disconnected)
 
-    # Initialize lobby timer (server only, created when needed)
-    lobby_state_timer = Timer.new()
-    lobby_state_timer.wait_time = 0.5  # Update twice per second
-    lobby_state_timer.autostart = false
-    lobby_state_timer.timeout.connect(_on_lobby_state_timer_timeout)
-    add_child(lobby_state_timer)
+    # if is_server:
+    #     # Initialize lobby timer (server only, created when needed)
+    #     lobby_state_timer = Timer.new()
+    #     lobby_state_timer.wait_time = 0.5  # Update twice per second
+    #     lobby_state_timer.autostart = false
+    #     lobby_state_timer.timeout.connect(_on_lobby_state_timer_timeout)
+    #     add_child(lobby_state_timer)
 
 func start_manager() -> void:
     initialized = true
 
 func stop_manager() -> void:
     initialized = false
-
-# Host a game (P2P mode)
-func host_game(port: int = DEFAULT_PORT) -> void:
-    print("Hosting game on port ", port)
-    
-    peer = ENetMultiplayerPeer.new()
-    var result = peer.create_server(port, MAX_PLAYERS)
-    
-    if result == OK:
-        multiplayer.multiplayer_peer = peer
-        is_host = true
-        is_server = false
-        connection_status = "hosting"
-        print("Game hosted successfully - waiting for players")
-        # Don't emit connection_succeeded yet - wait for player to connect
-    else:
-        print("Failed to host game: ", result)
-        connection_failed.emit()
-
-# Join a game (P2P mode)
-func join_game(ip: String, port: int = DEFAULT_PORT) -> void:
-    print("Joining game at ", ip, ":", port)
-    
-    peer = ENetMultiplayerPeer.new()
-    var result = peer.create_client(ip, port)
-    
-    if result == OK:
-        multiplayer.multiplayer_peer = peer
-        is_host = false
-        is_server = false
-        connection_status = "connecting"
-        print("Connecting to game...")
-    else:
-        print("Failed to create client: ", result)
-        connection_failed.emit()
 
 # Start as dedicated server (for VPS)
 func start_dedicated_server(port: int = DEFAULT_PORT) -> void:
@@ -149,15 +115,9 @@ func get_local_player_id() -> int:
     if is_server:
         return 0
 
-    # If we have an assigned player ID (from dedicated server), use it
-    if assigned_player_id > 0:
-        return assigned_player_id
-
-    # Legacy P2P mode
-    if is_host:
-        return 1
-    else:
-        return 2
+    # We must have an assigned player ID (from dedicated server)
+    assert(assigned_player_id > 0) 
+    return assigned_player_id
 
 # Check if it's local player's turn
 func is_local_player_turn(current_player: int) -> bool:
@@ -209,8 +169,8 @@ func _on_peer_connected(peer_id: int) -> void:
         _update_lobby_connections()
 
         # Start timer if not already running
-        if peer_to_player_id.size() > 0 and lobby_state_timer.is_stopped():
-            lobby_state_timer.start()
+        # if peer_to_player_id.size() > 0 and lobby_state_timer.is_stopped():
+        #     lobby_state_timer.start()
 
     # Note: We don't send game state here anymore
     # Game state will be sent by the game scene after it loads
@@ -228,8 +188,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
         player_ready_states.erase(player_id)
         _update_lobby_connections()
         # Stop timer if no players left
-        if peer_to_player_id.size() == 0 and not lobby_state_timer.is_stopped():
-            lobby_state_timer.stop()
+        # if peer_to_player_id.size() == 0 and not lobby_state_timer.is_stopped():
+        #     lobby_state_timer.stop()
         # Could potentially reassign this player ID later if needed
 
 func _on_connected_to_server() -> void:
@@ -335,6 +295,8 @@ func update_lobby_state(lobby_state: Dictionary) -> void:
 # Server: notify clients game is starting
 @rpc("authority", "call_local", "reliable")
 func start_game() -> void:
+    # if is_server:
+    #     lobby_state_timer.stop()
     print("Server: Starting game")
     game_starting.emit()
 
@@ -386,7 +348,8 @@ func _check_game_start() -> void:
         start_game.rpc()
 
         # Actually load game scene on server
-        get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
+        # (server calls itself with rpc, so no need)
+        # get_tree().change_scene_to_file("res://scenes/game/game_scene.tscn")
 
 # Server: update lobby state when player connects/disconnects
 func _update_lobby_connections() -> void:
