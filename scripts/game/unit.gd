@@ -60,7 +60,7 @@ func reset_turn() -> void:
 func take_damage(damage: int) -> void:
     print("DEBUG: take_damage called with damage=", damage, ", current_hp=", current_hp)
     current_hp -= damage
-    if current_hp < 0:
+    if current_hp <= 0:
         current_hp = 0
         _handle_unit_death()
     print("Unit took ", damage, " damage. HP: ", current_hp, "/", max_hp)

@@ -73,6 +73,7 @@ func _ready() -> void:
 
     # if we're a client that just finished initializing UI,
     # request game state from the server
+    # TODO: this happens twice, for both players, may be optimized for 1
     if MM.initialized and not MM.is_server:
         GS.request_game_sync.rpc_id(1)
         
@@ -272,7 +273,7 @@ func _handle_tile_click(coords: Vector2i) -> void:
     if MM.initialized and MM.has_active_connection():
         if not MM.is_local_player_turn(GS.current_player):
             print_verbose("Not your turn in multiplayer")
-            # TODO MAYBE: Add possible actions on opponent's turn (unit info, see walkable tiles)
+            # TODOMAYBE: Add possible actions on opponent's turn (unit info, see walkable tiles)
             return
     
     # check that tile is in the board
@@ -536,7 +537,7 @@ func attack_unit(attacker: Unit, target: Unit) -> void:
             # Steal the relic - attacker becomes new relic holder
             _steal_relic(attacker, target)
 
-        # _handle_unit_death(target)
+        target._handle_unit_death()
 
 
 # Revive function that can be called from game_state

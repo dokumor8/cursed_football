@@ -73,6 +73,8 @@ func load_state(game_data: Dictionary) -> void:
     var game_scene = game_scenes[0]
     print("DEBUG: Using game scene: ", game_scene.name)
     
+    game_scene.obstacles = {}
+
     red_revive_count = game_data["red_revive_count"]
     blue_revive_count = game_data["blue_revive_count"]
     relic_taken = game_data["relic_taken"]
@@ -90,9 +92,9 @@ func load_state(game_data: Dictionary) -> void:
 
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         unit.queue_free()
+        unit = null
 
     var units: Array = game_data["units"]
-
     var relic_holder_index = game_data["relic_holder"]
     var loop_index = 0
     for unit_data: Dictionary in units:
@@ -173,17 +175,13 @@ func request_move_rpc(unit_index: int, target_x: int, target_y: int) -> void:
         print("RPC: Not server, ignoring move request")
 
 @rpc("any_peer", "call_local", "reliable")
-func request_attack_rpc(attacker_index: int, target_index: int) -> void:
+func request_attack_rpc(attacker_position: Vector2i, target_position: Vector2i) -> void:
     var sender_id = multiplayer.get_remote_sender_id()
     print("=== RPC: request_attack_rpc called ===")
     print("RPC: Received attack request from peer ", sender_id)
-    print("RPC: attacker_index=", attacker_index, " target_index=", target_index)
-    print("RPC: Is server? ", multiplayer.is_server())
-    if multiplayer.is_server():
-        print("RPC: Processing attack request")
-        _process_attack_request(sender_id, attacker_index, target_index)
-    else:
-        print("RPC: Not server, ignoring attack request")
+    print("RPC: attacker_index=", attacker_position, " target_index=", target_position)
+    print("RPC: Processing attack request")
+    _process_attack_request(sender_id, attacker_position, target_position)
     print("=== RPC: request_attack_rpc complete ===")
 
 @rpc("any_peer", "call_local", "reliable")
@@ -273,59 +271,61 @@ func _process_move_request(sender_id: int, unit_index: int, target_position: Vec
     else:
         print("DEBUG: Invalid unit index: ", unit_index)
 
-func _process_attack_request(sender_id: int, attacker_index: int, target_index: int) -> void:
-    print("DEBUG: _process_attack_request called with attacker=", attacker_index, " target=", target_index)
+func _process_attack_request(sender_id: int, attacker_position: Vector2i, target_position: Vector2i) -> void:
+    print("DEBUG: _process_attack_request called with attacker=", attacker_position, " target=", target_position)
     var units = get_tree().get_nodes_in_group("units")
     print("DEBUG: Found ", units.size(), " units in group")
+    var attacker: Unit
+    var target: Unit
+    for unit: Unit in units:
+        if attacker_position == unit.grid_position:
+            attacker = unit
+        if target_position == unit.grid_position:
+            target = unit
     
-    if attacker_index >= 0 and attacker_index < units.size() and target_index >= 0 and target_index < units.size():
-        var attacker = units[attacker_index]
-        var target = units[target_index]
-        print("DEBUG: Attacker: side=", attacker.conflict_side, " pos=", attacker.grid_position, " has_attacked=", attacker.has_attacked_this_turn)
-        print("DEBUG: Target: side=", target.conflict_side, " pos=", target.grid_position)
-        
-        # Check if sender is authorized to control this attacker
-        var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
-        if multiplayer_manager:
-            var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
-            if sender_player_id != attacker.conflict_side:
-                print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " attacker side=", attacker.conflict_side)
-                return
-            # Also check if it's this player's turn
-            if attacker.conflict_side != current_player:
-                print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
-                return
-        else:
-            # Fallback: check if it's attacker's player's turn (for P2P mode)
-            if attacker.conflict_side != current_player:
-                print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
-                return
-            
-        # Check if attacker can attack
-        if attacker.has_attacked_this_turn:
-            print("DEBUG: Attacker has already attacked this turn")
+    print("DEBUG: Attacker: side=", attacker.conflict_side, " pos=", attacker.grid_position, " has_attacked=", attacker.has_attacked_this_turn)
+    print("DEBUG: Target: side=", target.conflict_side, " pos=", target.grid_position)
+    
+    # Check if sender is authorized to control this attacker
+    var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
+    if multiplayer_manager:
+        var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
+        if sender_player_id != attacker.conflict_side:
+            print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " attacker side=", attacker.conflict_side)
             return
-            
-        # Check if target is adjacent (simplified)
-        var distance = abs(attacker.grid_position.x - target.grid_position.x) + \
-                       abs(attacker.grid_position.y - target.grid_position.y)
-        print("DEBUG: Distance between units: ", distance)
-        if distance > 1:
-            print("DEBUG: Target not adjacent")
+        # Also check if it's this player's turn
+        if attacker.conflict_side != current_player:
+            print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
             return
-            
-        # Perform attack
-        var game_scene = get_tree().get_nodes_in_group("main_scene")
-        print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
-        if game_scene.size() > 0 and game_scene[0].has_method("attack_unit"):
-            game_scene[0].attack_unit(attacker, target)
-            
-            # Sync updated state
-            _sync_game_state()
-        else:
-            print("DEBUG: No game scene found or missing attack_unit method")
     else:
-        print("DEBUG: Invalid attacker or target index")
+        # Fallback: check if it's attacker's player's turn (for P2P mode)
+        if attacker.conflict_side != current_player:
+            print("DEBUG: Not this player's turn. Attacker side=", attacker.conflict_side, " current_player=", current_player)
+            return
+        
+    # Check if attacker can attack
+    if attacker.has_attacked_this_turn:
+        print("DEBUG: Attacker has already attacked this turn")
+        return
+        
+    # Check if target is adjacent (simplified)
+    var distance = abs(attacker.grid_position.x - target.grid_position.x) + \
+                    abs(attacker.grid_position.y - target.grid_position.y)
+    print("DEBUG: Distance between units: ", distance)
+    if distance > 1:
+        print("DEBUG: Target not adjacent")
+        return
+        
+    # Perform attack
+    var game_scene = get_tree().get_nodes_in_group("main_scene")
+    print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
+    if game_scene.size() > 0 and game_scene[0].has_method("attack_unit"):
+        game_scene[0].attack_unit(attacker, target)
+        
+        # Sync updated state
+        _sync_game_state()
+    else:
+        print("DEBUG: No game scene found or missing attack_unit method")
 
 func _process_end_turn_request(sender_id: int) -> void:
     print("DEBUG: _process_end_turn_request called from sender ", sender_id)
