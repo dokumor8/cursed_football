@@ -32,7 +32,7 @@ var pending_actions: Array = []
 
 # Player assignment (for dedicated server)
 var assigned_player_id: int = 0  # Local player's assigned ID (0 for server, 1/2 for players)
-var peer_to_player_id: Dictionary = {}  # Server only: peer_id -> player_id
+var player_to_peer_id: Dictionary = {1: null, 2: null} # Server only: 1 -> peer1, 2 -> peer2
 var next_player_id: int = 1  # Server only: next player ID to assign
 
 # Lobby state (server only)
@@ -156,10 +156,16 @@ func _on_peer_connected(peer_id: int) -> void:
     player_connected.emit(peer_id)
 
     # Assign player ID if we're the server
-    if is_server and next_player_id <= MAX_PLAYERS:
-        var player_id = next_player_id
-        peer_to_player_id[peer_id] = player_id
-        next_player_id += 1
+    if not is_server:
+        return
+    var found_slot = false
+    var player_id: int
+    for player in player_to_peer_id:
+        if player_to_peer_id[player] == null:
+            player_to_peer_id[player] = peer_id
+            found_slot = true
+            player_id = player
+    if found_slot:
         print("Assigned player ID ", player_id, " to peer ", peer_id)
         # Notify the client of their assigned player ID
         assign_player_id_rpc.rpc_id(peer_id, player_id)
@@ -167,30 +173,29 @@ func _on_peer_connected(peer_id: int) -> void:
         # Initialize lobby state for this player
         player_ready_states[player_id] = false
         _update_lobby_connections()
-
-        # Start timer if not already running
-        # if peer_to_player_id.size() > 0 and lobby_state_timer.is_stopped():
-        #     lobby_state_timer.start()
-
-    # Note: We don't send game state here anymore
-    # Game state will be sent by the game scene after it loads
+    else:
+        print("Slots are full")
 
 func _on_peer_disconnected(peer_id: int) -> void:
     print("Player disconnected: ", peer_id)
     player_disconnected.emit(peer_id)
 
-    # Clean up player assignment if we're the server
-    if is_server and peer_to_player_id.has(peer_id):
-        var player_id = peer_to_player_id[peer_id]
-        peer_to_player_id.erase(peer_id)
+    if not is_server:
+        return
+
+    var player_id: int
+    var found_player = false
+    for player in player_to_peer_id:
+        if player_to_peer_id[player] == peer_id:
+            found_player = true
+            player_to_peer_id[player] = null
+            player_id = player
+
+    if found_player:
         print("Removed player ID ", player_id, " for disconnected peer ", peer_id)
         # Clean up lobby state
         player_ready_states.erase(player_id)
         _update_lobby_connections()
-        # Stop timer if no players left
-        # if peer_to_player_id.size() == 0 and not lobby_state_timer.is_stopped():
-        #     lobby_state_timer.stop()
-        # Could potentially reassign this player ID later if needed
 
 func _on_connected_to_server() -> void:
     print("Connected to server successfully")
