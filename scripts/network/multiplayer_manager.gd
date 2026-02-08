@@ -165,6 +165,7 @@ func _on_peer_connected(peer_id: int) -> void:
             player_to_peer_id[player] = peer_id
             found_slot = true
             player_id = player
+            break
     if found_slot:
         print("Assigned player ID ", player_id, " to peer ", peer_id)
         # Notify the client of their assigned player ID
@@ -190,6 +191,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
             found_player = true
             player_to_peer_id[player] = null
             player_id = player
+            break
 
     if found_player:
         print("Removed player ID ", player_id, " for disconnected peer ", peer_id)
@@ -240,21 +242,21 @@ func is_authority() -> bool:
 func get_player_id_for_peer(peer_id: int) -> int:
     if not is_server:
         return 0
-    return peer_to_player_id.get(peer_id, 0)
+    for player_id in player_to_peer_id:
+        if player_to_peer_id[player_id] == peer_id:
+            return player_id
+    return 0
 
 # Get peer ID for a player (server only)
 func get_peer_id_for_player(player_id: int) -> int:
     if not is_server:
         return 0
-    for peer_id in peer_to_player_id:
-        if peer_to_player_id[peer_id] == player_id:
-            return peer_id
-    return 0
+    return player_to_peer_id.get(player_id, 0)
 
 # Reset player assignments (server only)
 func reset_player_assignments() -> void:
     if is_server:
-        peer_to_player_id.clear()
+        player_to_peer_id.clear()
         next_player_id = 1
         print("Reset player assignments")
 
@@ -363,9 +365,9 @@ func _update_lobby_connections() -> void:
 
     # Update connection states
     player_connections.clear()
-    for peer_id in peer_to_player_id:
-        var player_id = peer_to_player_id[peer_id]
-        player_connections[player_id] = true
+    for player_id in player_to_peer_id:
+        if player_to_peer_id != null:
+            player_connections[player_id] = true
 
     # Broadcast updated lobby state
     _broadcast_lobby_state()
