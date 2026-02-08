@@ -17,9 +17,6 @@ var RelicScene: PackedScene = preload("res://scenes/game/relic.tscn")
 var relic_instance: Node2D
 var relic_position: Vector2i = GC.INITIAL_RELIC_POSITION # Center of map
 
-# Multiplayer
-var network_status_label: Label = null
-
 # Revival system
 var is_revival_mode: bool = false
 var revival_highlight_atlas: Vector2i = GC.REVIVAL_HIGHLIGHT_ATLAS # Different tile for revival highlight
@@ -73,21 +70,13 @@ func _ready() -> void:
 
     # if we're a client that just finished initializing UI,
     # request game state from the server
-    # TODO: this happens twice, for both players, may be optimized for 1
     if MM.initialized and not MM.is_server:
         GS.request_game_sync.rpc_id(1)
         
-    
     print("=== GameScene._ready() complete ===")
 
 
 func _initialize_game() -> void:
-
-    print("Initializing game...")
-
-    # Skip UI initialization if we're a dedicated server
-    # TODO: Add "local game" option
-
     print("Spawning Red units at: ", GC.get_spawn_positions(GC.PLAYER_RED))
     for location in GC.get_spawn_positions(GC.PLAYER_RED):
         spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
@@ -133,45 +122,13 @@ func _initialize_multiplayer() -> void:
     
     # Connect signals
     MM.game_state_received.connect(GS._on_game_state_received)
-    
-    # Create network status label if it doesn't exist
-    _create_network_status_label()
-
-
-func _create_network_status_label() -> void:
-    network_status_label = Label.new()
-    network_status_label.name = "NetworkStatus"
-    network_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    network_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    network_status_label.add_theme_font_size_override("font_size", 14)
-    
-    var ui_layer = $UILayer
-    if ui_layer:
-        ui_layer.add_child(network_status_label)
-        network_status_label.position = Vector2(10, 10)
-        _update_network_status()
-
-
-func _update_network_status() -> void:
-    if network_status_label and MM:
-        var status = MM.get_connection_status()
-        var text = "Network: " + status
-        network_status_label.text = text
-        
-        # Color coding
-        match status:
-            "connected", "hosting", "server":
-                network_status_label.add_theme_color_override("font_color", Color.GREEN)
-            "connecting":
-                network_status_label.add_theme_color_override("font_color", Color.YELLOW)
-            "disconnected":
-                network_status_label.add_theme_color_override("font_color", Color.RED)
-            _:
-                network_status_label.add_theme_color_override("font_color", Color.WHITE)
 
 
 ## == Initialization. Spawning ==
 func spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side = GC.PLAYER_RED) -> Unit:
+    if obstacles.has(grid_pos) and obstacles[grid_pos]:
+        print("ERROR: unit spawning position is an obstacle")
+        return
     var unit = spawning_scene.instantiate()
     unit.conflict_side = side
     add_child(unit)
@@ -182,17 +139,13 @@ func spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side = 
     var local_pos = terrain_layer.map_to_local(grid_pos)
     var global_pos = terrain_layer.to_global(local_pos)
     unit.global_position = global_pos
-    print("Spawning unit at", grid_pos)
+    print_verbose("Spawning unit at", grid_pos)
 
-    unit.unit_died.connect(_on_unit_death)
     return unit
 
 
 func _on_unit_death(unit: Unit):
-    # Free the obstacle
     obstacles[unit.grid_position] = false
-    # Update revive UI
-    _update_revive_ui()
 
 
 func spawn_relic_at_tile(grid_pos: Vector2i):
@@ -305,7 +258,7 @@ func _handle_tile_click(coords: Vector2i) -> void:
 
             # Clicked on empty tile with no unit selected - clear any existing selection
             clear_selection()
-            clear_walkable_highlight()
+            clear_all_highlights()
 
 
 func command_unit(selected_unit: Unit, coords: Vector2i):
@@ -330,7 +283,7 @@ func command_unit(selected_unit: Unit, coords: Vector2i):
 
         print("Picking up relic at", coords)
         clear_selection()
-        clear_walkable_highlight()
+        clear_all_highlights()
         
         # Sync game state if in multiplayer
         if MM.initialized and MM.has_active_connection():
@@ -348,7 +301,7 @@ func command_unit(selected_unit: Unit, coords: Vector2i):
             # Client: Send attack request to server
             GS.request_attack_rpc.rpc_id(1, attacker_position, enemy_unit_position)
             clear_selection()
-            clear_walkable_highlight()
+            clear_all_highlights()
         else:
             # Host/Local: Process attack directly
             print("Attacking enemy unit at", coords)
@@ -358,7 +311,7 @@ func command_unit(selected_unit: Unit, coords: Vector2i):
             var attacker: Unit = GS.selected_unit
 
             clear_selection()
-            clear_walkable_highlight()
+            clear_all_highlights()
 
             # Check if enemy unit died
             if enemy_unit_at_tile.is_dead():
@@ -400,12 +353,12 @@ func command_unit_to_walk(selected_unit: Unit, destination: Vector2i):
             var unit_index_send = _get_unit_index(GS.selected_unit)
             GS.request_move_rpc.rpc_id(1, unit_index_send, destination.x, destination.y)
             clear_selection()
-            clear_walkable_highlight()
+            clear_all_highlights()
         else:
             # Host/Local: Process move directly
             move_unit(GS.selected_unit, destination, movement_cost)
             clear_selection()
-            clear_walkable_highlight()
+            clear_all_highlights()
 
             # Sync game state if in multiplayer
             if MM.initialized and MM.has_active_connection():
@@ -537,8 +490,6 @@ func attack_unit(attacker: Unit, target: Unit) -> void:
             # Steal the relic - attacker becomes new relic holder
             _steal_relic(attacker, target)
 
-        target._handle_unit_death()
-
 
 # Revive function that can be called from game_state
 func revive_unit(player: int) -> void:
@@ -551,16 +502,14 @@ func revive_unit(player: int) -> void:
 
 
 # == UI ==
-
-
-func clear_walkable_highlight() -> void:
+func clear_all_highlights() -> void:
     for coord in highlight_layer.get_used_cells():
         highlight_layer.erase_cell(coord)
 
 
 func highlight_walkable_tiles(unit) -> void:
     var starting_coord = unit.grid_position
-    clear_walkable_highlight()
+    clear_all_highlights()
 
     var reachable_data = get_reachable_tiles(starting_coord, unit.movement_left)
     var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
@@ -658,7 +607,7 @@ func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
 
 func _highlight_revival_tiles() -> void:
     # Clear any existing highlights
-    clear_walkable_highlight()
+    clear_all_highlights()
 
     # Get spawn tiles for current player
     var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(GS.current_player)
@@ -690,10 +639,7 @@ func _handle_revival_click(coords: Vector2i) -> void:
             else:
                 # Client: Send request to server
                 GS.request_revive_rpc.rpc_id(1, GS.current_player)
-                # Exit revival mode
-                is_revival_mode = false
-                clear_walkable_highlight()
-                revive_button.text = "Revive Unit"
+                exit_revival_mode()
         else:
             # Local game
             _revive_unit_at_tile(coords)
@@ -729,13 +675,9 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     else:
         GS.blue_revive_count -= 1
 
+    exit_revival_mode()
     # Update UI
     _update_revive_ui()
-
-    # Exit revival mode
-    is_revival_mode = false
-    clear_walkable_highlight()
-    revive_button.text = "Revive Unit"
 
     print("Revival complete. Revives left:", GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count)
 
@@ -771,58 +713,43 @@ func _update_revive_ui() -> void:
 
 
 func _on_end_turn_button_pressed() -> void:
-    # Cancel revival mode if active
-    if is_revival_mode:
-        is_revival_mode = false
-        clear_walkable_highlight()
-        revive_button.text = "Revive Unit"
-        print("Revival mode cancelled due to turn end")
+    clear_all_highlights()
 
-    # Check if in multiplayer
-    if MM.initialized and MM.has_active_connection():
-        if MM.is_authority():
-            # Host: Process end turn and sync
-            print("Ending turn for player", GS.current_player)
-            _switch_player_turn()
-            GS._sync_game_state()
-        else:
-            # Client: Send request to server
-            GS.request_end_turn_rpc.rpc_id(1)
-    else:
-        # Local game
-        print("Ending turn for player", GS.current_player)
-        _switch_player_turn()
-        GS.save_game()
-    
+    # Cancel revival mode if active
+    exit_revival_mode()
     _update_revive_ui()
+
+    # Ask server to switch turns
+    GS.request_end_turn_rpc.rpc_id(1)    
 
 
 func _on_reset_button_pressed() -> void:
     print_debug("DEBUGGING A VERSION WITHOUT RESETTING, THE BUTTON IS NOT WORKING")
-    # GS.load_game()
 
 
 func _on_revive_button_pressed() -> void:
-    # Toggle revival mode
     if is_revival_mode:
-        # Cancel revival mode
-        is_revival_mode = false
-        clear_walkable_highlight()
-        revive_button.text = "Revive Unit"
-        print("Revival mode cancelled")
-    else:
-        # Enter revival mode if player has revives
-        var available_revives = GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count
-        if available_revives > 0:
-            is_revival_mode = true
-            revive_button.text = "Cancel revival"
-            # Clear any unit selection when entering revival mode
-            clear_selection()
-            clear_walkable_highlight()
-            _highlight_revival_tiles()
-            print("Entered revival mode")
-        else:
-            print("No revives available")
+        exit_revival_mode()
+        return
+
+    # Enter revival mode
+    var available_revives = GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count
+    # Button must not be available otherwise
+    assert(available_revives > 0)
+    is_revival_mode = true
+    revive_button.text = "Cancel revival"
+    # Clear any unit selection when entering revival mode
+    clear_selection()
+    clear_all_highlights()
+    _highlight_revival_tiles()
+    print("Entered revival mode")
+
+
+func exit_revival_mode() -> void:
+    is_revival_mode = false
+    clear_all_highlights()
+    revive_button.text = "Revive Unit"
+
 
 func _load_game_over_menu() -> void:
     # Load the game over menu scene

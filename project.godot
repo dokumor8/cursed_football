@@ -23,6 +23,7 @@ MM="*res://scripts/network/multiplayer_manager.gd"
 
 [display]
 
+window/size/viewport_width=700
 window/stretch/aspect="expand"
 
 [rendering]

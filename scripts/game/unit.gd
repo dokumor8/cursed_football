@@ -1,8 +1,6 @@
 class_name Unit
 extends Node2D
 
-signal unit_died
-
 @export var conflict_side: int = GC.PLAYER_RED
 @export var grid_position: Vector2i
 @export var speed: int = GC.UNIT_SPEED
@@ -60,14 +58,15 @@ func reset_turn() -> void:
 func take_damage(damage: int) -> void:
     print("DEBUG: take_damage called with damage=", damage, ", current_hp=", current_hp)
     current_hp -= damage
-    if current_hp <= 0:
+    if is_dead():
         current_hp = 0
         _handle_unit_death()
     print("Unit took ", damage, " damage. HP: ", current_hp, "/", max_hp)
     # Update HP label
     _update_hp_label()
 
-
+# TODO: death handling should happen at the end of the action
+# so the relic taking works with an existing unit with 0 hp
 func _handle_unit_death() -> void:
     # Remove unit from the board
     print("Unit died at", grid_position)
@@ -83,8 +82,6 @@ func _handle_unit_death() -> void:
     else:
         GS.blue_revive_count += GC.REVIVE_TOKEN_REWARD # Blue player killed a red unit
         print("Blue player gets a revive token. Total:", GS.blue_revive_count)
-
-    unit_died.emit()
 
 
 # Check if unit is dead
@@ -150,7 +147,7 @@ func drop_relic() -> void:
     print("Unit dropped relic")
 
 func _update_hp_label() -> void:
-    print("DEBUG: updating HP UI")
+    print_verbose("DEBUG: updating HP UI")
     # Update the HP label text
     if hp_label:
         hp_label.text = str(current_hp) + "/" + str(max_hp)

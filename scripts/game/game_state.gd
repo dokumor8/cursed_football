@@ -6,7 +6,10 @@ var relic_taken = false
 var red_revive_count = 0
 var blue_revive_count = 0
 
+var initial_sync_done = false
+
 var current_player: int = GC.PLAYER_RED # Red player starts (bottom)
+var local_player: int = -1
 var selected_unit: Unit = null
 
 
@@ -15,14 +18,14 @@ func serialize() -> String:
     var relic_holder_index = -1
     var loop_index = 0
     for unit: Unit in get_tree().get_nodes_in_group("units"):
-        print("serializing unit at", unit.grid_position)
+        print_verbose("serializing unit at", unit.grid_position)
         var unit_data = unit.serialize()
-        print("Current unit data:", unit_data)
+        print_verbose("Current unit data:", unit_data)
         if relic_holder == unit:
             relic_holder_index = loop_index
         units.append(unit_data)
         loop_index += 1
-    print("Unit data:", units)
+    print_verbose("Unit data:", units)
     var game_state = {
         "units": units,
         "relic_holder": relic_holder_index,
@@ -89,6 +92,11 @@ func load_state(game_data: Dictionary) -> void:
         game_scene.obstacles[GC.INITIAL_RELIC_POSITION] = false
     relic_timer = game_data["relic_timer"]
     current_player = game_data["current_player"]
+
+
+    game_scene._update_turn_indicator()
+    game_scene._update_relic_status()
+    game_scene._update_revive_ui()
 
     for unit: Unit in get_tree().get_nodes_in_group("units"):
         unit.queue_free()
@@ -308,24 +316,25 @@ func _process_attack_request(sender_id: int, attacker_position: Vector2i, target
         print("DEBUG: Attacker has already attacked this turn")
         return
         
-    # Check if target is adjacent (simplified)
-    var distance = abs(attacker.grid_position.x - target.grid_position.x) + \
-                    abs(attacker.grid_position.y - target.grid_position.y)
-    print("DEBUG: Distance between units: ", distance)
-    if distance > 1:
-        print("DEBUG: Target not adjacent")
-        return
-        
+
+    var game_scene: Node2D
     # Perform attack
-    var game_scene = get_tree().get_nodes_in_group("main_scene")
-    print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
-    if game_scene.size() > 0 and game_scene[0].has_method("attack_unit"):
-        game_scene[0].attack_unit(attacker, target)
-        
-        # Sync updated state
-        _sync_game_state()
+    var game_scenes = get_tree().get_nodes_in_group("main_scene")
+    print("DEBUG: Found ", game_scenes.size(), " main_scene nodes")
+    if game_scenes.size() > 0 and game_scenes[0].has_method("attack_unit"):
+        game_scene = game_scenes[0]
     else:
         print("DEBUG: No game scene found or missing attack_unit method")
+
+    # Check if target is adjacent    
+    if game_scene._are_tiles_adjacent(attacker.grid_position, target.grid_position):
+
+        game_scene.attack_unit(attacker, target)
+    else:
+        print("DEBUG: Target not adjacent")
+
+    # Sync updated state
+    _sync_game_state()
 
 func _process_end_turn_request(sender_id: int) -> void:
     print("DEBUG: _process_end_turn_request called from sender ", sender_id)
@@ -342,14 +351,14 @@ func _process_end_turn_request(sender_id: int) -> void:
         print("DEBUG: P2P mode, accepting end turn request")
 
     # Switch player
-    current_player = GC.PLAYER_BLUE if current_player == GC.PLAYER_RED else GC.PLAYER_RED
+    GS.current_player = GC.PLAYER_BLUE if current_player == GC.PLAYER_RED else GC.PLAYER_RED
 
     # Reset unit states for new player
     for unit in get_tree().get_nodes_in_group("units"):
         if unit.conflict_side == current_player:
             unit.movement_left = unit.speed
             unit.has_attacked_this_turn = false
-
+    GS.relic_holder.apply_relic_effects(GS.relic_timer)
     # Sync updated state
     _sync_game_state()
 
@@ -434,4 +443,6 @@ func _sync_game_state() -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_game_sync() -> void:
-    _sync_game_state()
+    if not initial_sync_done:
+        _sync_game_state()
+        initial_sync_done = true
