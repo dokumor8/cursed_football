@@ -103,6 +103,7 @@ func attack(target: Unit) -> void:
 
 # Become a relic holder (timer passed from game scene)
 func become_relic_holder(timer: int) -> void:
+    GS.relic_holder = self
     is_relic_holder = true
     _update_relic_sprite()
     apply_relic_effects(timer)
@@ -137,14 +138,6 @@ func apply_relic_effects(timer: int) -> void:
 
     print("Relic holder effects: timer=", timer, ", speed=", movement_left, ", attack=", attack_power)
 
-# Drop relic (when unit dies or otherwise loses relic)
-func drop_relic() -> void:
-    is_relic_holder = false
-    _update_relic_sprite()
-    # Reset to normal stats
-    movement_left = speed
-    attack_power = GC.UNIT_ATTACK_POWER
-    print("Unit dropped relic")
 
 func _update_hp_label() -> void:
     print_verbose("DEBUG: updating HP UI")

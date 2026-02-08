@@ -202,13 +202,13 @@ func request_end_turn_rpc() -> void:
         _process_end_turn_request(sender_id)
 
 @rpc("any_peer", "call_local", "reliable")
-func request_revive_rpc(player: int) -> void:
+func request_revive_rpc(player: int, coords: Vector2i) -> void:
     var sender_id = multiplayer.get_remote_sender_id()
     print("RPC: Received revive request from peer ", sender_id, " for player ", player)
     print("RPC: Is server? ", multiplayer.is_server())
     if multiplayer.is_server():
         print("Processing revive request for player ", player)
-        _process_revive_request(sender_id, player)
+        _process_revive_request(sender_id, player, coords)
 
 @rpc("any_peer", "call_local", "reliable")
 func request_pick_up_rpc(unit_index: int) -> void:
@@ -222,62 +222,56 @@ func request_pick_up_rpc(unit_index: int) -> void:
         print("RPC: Not server, ignoring move request")
 
 
-
 # Process network requests
 func _process_move_request(sender_id: int, unit_index: int, target_position: Vector2i) -> void:
     print("DEBUG: _process_move_request called with unit_index=", unit_index, " target=", target_position)
     var units = get_tree().get_nodes_in_group("units")
     print("DEBUG: Found ", units.size(), " units in group")
     
-    if unit_index >= 0 and unit_index < units.size():
-        var unit = units[unit_index]
-        print("DEBUG: Unit found: side=", unit.conflict_side, " pos=", unit.grid_position, " movement_left=", unit.movement_left)
+    if unit_index < 0 or unit_index >= units.size():
+        print("DEBUG: Invalid unit index: ", unit_index) 
+
+    var unit = units[unit_index]
+    print("DEBUG: Unit found: side=", unit.conflict_side, " pos=", unit.grid_position, " movement_left=", unit.movement_left)
+    
+    # Check if sender is authorized to control this unit
+    var sender_player_id = MM.get_player_id_for_peer(sender_id)
+    if sender_player_id != unit.conflict_side:
+        print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " unit side=", unit.conflict_side)
+        return
+    # Also check if it's this player's turn
+    if unit.conflict_side != current_player:
+        print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
+        return
+    
+    # Check if unit can move (simplified validation)
+    if unit.movement_left <= 0:
+        print("DEBUG: Unit has no movement left")
+        return
         
-        # Check if sender is authorized to control this unit
-        var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
-        if multiplayer_manager:
-            var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
-            if sender_player_id != unit.conflict_side:
-                print("DEBUG: Sender not authorized. Sender player ID=", sender_player_id, " unit side=", unit.conflict_side)
-                return
-            # Also check if it's this player's turn
-            if unit.conflict_side != current_player:
-                print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
-                return
-        else:
-            # Fallback: check if it's this unit's player's turn (for P2P mode)
-            if unit.conflict_side != current_player:
-                print("DEBUG: Not this player's turn. Unit side=", unit.conflict_side, " current_player=", current_player)
-                return
-            
-        # Check if unit can move (simplified validation)
-        if unit.movement_left <= 0:
-            print("DEBUG: Unit has no movement left")
-            return
-            
-        # Move the unit (simplified - actual validation should check reachable tiles)
-        var game_scene = get_tree().get_nodes_in_group("main_scene")
-        print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
-        if game_scene.size() > 0 and game_scene[0].has_method("move_unit"):
-            var scene = game_scene[0]
-            # Check if tile is reachable
-            var reachable_data = scene.get_reachable_tiles(unit.grid_position, unit.movement_left)
-            var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
-            
-            print("DEBUG: Checking if target ", target_position, " is in reachable tiles")
-            if reachable_tiles.has(target_position):
-                var movement_cost: int = reachable_data["distances"][target_position]
-                print("DEBUG: Moving unit, movement_cost=", movement_cost)
-                scene.move_unit(unit, target_position, movement_cost)
-                
-                # Sync updated state
-                _sync_game_state()
-            else:
-                print("DEBUG: Tile not reachable for movement")
-        else:
-            print("DEBUG: No game scene found or missing move_unit method")
+    # Move the unit
+    var game_scene = get_tree().get_nodes_in_group("main_scene")
+    print("DEBUG: Found ", game_scene.size(), " main_scene nodes")
+    if game_scene.size() <= 0 or not game_scene[0].has_method("move_unit"):
+        print("DEBUG: No game scene found or missing move_unit method")
+
+    var scene = game_scene[0]
+    # Check if tile is reachable
+    var reachable_data = scene.get_reachable_tiles(unit.grid_position, unit.movement_left)
+    var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
+    
+    print("DEBUG: Checking if target ", target_position, " is in reachable tiles")
+    if reachable_tiles.has(target_position):
+        var movement_cost: int = reachable_data["distances"][target_position]
+        print("DEBUG: Moving unit, movement_cost=", movement_cost)
+        scene.move_unit(unit, target_position, movement_cost)
+        
+        # Sync updated state
+        _sync_game_state()
     else:
-        print("DEBUG: Invalid unit index: ", unit_index)
+        print("DEBUG: Tile not reachable for movement")
+
+
 
 func _process_attack_request(sender_id: int, attacker_position: Vector2i, target_position: Vector2i) -> void:
     print("DEBUG: _process_attack_request called with attacker=", attacker_position, " target=", target_position)
@@ -316,7 +310,6 @@ func _process_attack_request(sender_id: int, attacker_position: Vector2i, target
         print("DEBUG: Attacker has already attacked this turn")
         return
         
-
     var game_scene: Node2D
     # Perform attack
     var game_scenes = get_tree().get_nodes_in_group("main_scene")
@@ -336,45 +329,47 @@ func _process_attack_request(sender_id: int, attacker_position: Vector2i, target
     # Sync updated state
     _sync_game_state()
 
+
 func _process_end_turn_request(sender_id: int) -> void:
     print("DEBUG: _process_end_turn_request called from sender ", sender_id)
 
     # Check if sender is authorized to end turn
-    var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
-    if multiplayer_manager:
-        var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
-        if sender_player_id != current_player:
-            print("DEBUG: Sender not authorized to end turn. Sender player ID=", sender_player_id, " current_player=", current_player)
-            return
-    else:
-        # P2P mode: basic validation
-        print("DEBUG: P2P mode, accepting end turn request")
+    var sender_player_id = MM.get_player_id_for_peer(sender_id)
+    if sender_player_id != current_player:
+        print("DEBUG: Sender not authorized to end turn. Sender player ID=", sender_player_id, " current_player=", current_player)
+        return
 
-    # Switch player
-    GS.current_player = GC.PLAYER_BLUE if current_player == GC.PLAYER_RED else GC.PLAYER_RED
+    # Switch to the other player
+    if GS.current_player == GC.PLAYER_RED:
+        GS.current_player = GC.PLAYER_BLUE
+        print("Now it's Blue player's turn")
+    else:
+        # Increment global relic timer once per round (after Blue player's turn)
+        if GS.relic_holder:
+            GS.relic_timer += 1
+            # Update relic holder's effects with new timer value
+            GS.relic_holder.apply_relic_effects(GS.relic_timer)
+            print("Global relic timer incremented to:", GS.relic_timer)
+        GS.current_player = GC.PLAYER_RED
+        print("Now it's Red player's turn")
 
     # Reset unit states for new player
     for unit in get_tree().get_nodes_in_group("units"):
         if unit.conflict_side == current_player:
-            unit.movement_left = unit.speed
-            unit.has_attacked_this_turn = false
+            unit.reset_turn()
     GS.relic_holder.apply_relic_effects(GS.relic_timer)
     # Sync updated state
     _sync_game_state()
 
-func _process_revive_request(sender_id: int, player: int) -> void:
+
+func _process_revive_request(sender_id: int, player: int, coords: Vector2i) -> void:
     print("DEBUG: _process_revive_request called from sender ", sender_id, " for player ", player)
 
     # Check if sender is authorized to revive for this player
-    var multiplayer_manager = get_node_or_null("/root/MultiplayerManager")
-    if multiplayer_manager:
-        var sender_player_id = multiplayer_manager.get_player_id_for_peer(sender_id)
-        if sender_player_id != player:
-            print("DEBUG: Sender not authorized to revive for player. Sender player ID=", sender_player_id, " requested player=", player)
-            return
-    else:
-        # P2P mode: basic validation
-        print("DEBUG: P2P mode, accepting revive request")
+    var sender_player_id = MM.get_player_id_for_peer(sender_id)
+    if sender_player_id != player:
+        print("DEBUG: Sender not authorized to revive for player. Sender player ID=", sender_player_id, " requested player=", player)
+        return
 
     # Simplified revive logic
     var game_scenes = get_tree().get_nodes_in_group("main_scene")
@@ -383,7 +378,7 @@ func _process_revive_request(sender_id: int, player: int) -> void:
         return
     var game_scene = game_scenes[0]
     if game_scene.has_method("revive_unit"):
-        game_scene.revive_unit(player)
+        game_scene.revive_unit(player, coords)
 
         # Sync updated state
         _sync_game_state()

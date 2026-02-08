@@ -60,13 +60,6 @@ func _ready() -> void:
         # MM not initialized = local
         _initialize_game()
         _initialize_game_ui_only()
-        
-    
-    # If we're in multiplayer and the server, send initial state to client
-    if MM.initialized and MM.is_server:
-        print("Host: Game initialized, sending state to client...")
-        # Send initial state to client
-        GS._sync_game_state()
 
     # if we're a client that just finished initializing UI,
     # request game state from the server
@@ -80,20 +73,14 @@ func _initialize_game() -> void:
     print("Spawning Red units at: ", GC.get_spawn_positions(GC.PLAYER_RED))
     for location in GC.get_spawn_positions(GC.PLAYER_RED):
         spawn_unit_at_tile(UnitScene, location, GC.PLAYER_RED)
-        print_verbose("  Spawned Red unit at ", location)
 
     print("Spawning Blue units at: ", GC.get_spawn_positions(GC.PLAYER_BLUE))
     for location in GC.get_spawn_positions(GC.PLAYER_BLUE):
         spawn_unit_at_tile(UnitScene, location, GC.PLAYER_BLUE)
-        print_verbose("  Spawned Blue unit at ", location)
 
     # Spawn relic at center of map
     print("Spawning relic at: ", relic_position)
     spawn_relic_at_tile(relic_position)
-
-    # Initialize movements for starting player (Red)
-    _reset_player_unit_movements()
-    print("Game initialization complete")
 
 
 # Initialize only UI elements (for clients waiting for state)
@@ -144,10 +131,6 @@ func spawn_unit_at_tile(spawning_scene: PackedScene, grid_pos: Vector2i, side = 
     return unit
 
 
-func _on_unit_death(unit: Unit):
-    obstacles[unit.grid_position] = false
-
-
 func spawn_relic_at_tile(grid_pos: Vector2i):
     relic_instance = RelicScene.instantiate()
     add_child(relic_instance)
@@ -186,32 +169,6 @@ func _pickup_relic(unit: Unit) -> void:
     unit.has_attacked_this_turn = true
     unit.movement_left = 0
     print("Relic picked up by unit at", unit.grid_position, "with global timer:", GS.relic_timer)
-
-
-func _steal_relic(new_holder: Unit, previous_holder: Unit) -> void:
-    # Safety checks
-    if new_holder == null:
-        print("ERROR: new_holder is null in _steal_relic!")
-        return
-
-    if previous_holder == null:
-        print("ERROR: previous_holder is null in _steal_relic!")
-        return
-
-    if new_holder == previous_holder:
-        print("ERROR: new_holder == previous_holder in _steal_relic!")
-        return
-
-    # Previous holder drops the relic
-    previous_holder.drop_relic()
-
-    # New holder takes the relic with current global timer
-    new_holder.become_relic_holder(GS.relic_timer)
-    GS.relic_holder = new_holder
-
-    # Update relic status UI
-    _update_relic_status()
-    print("Relic stolen by unit at", new_holder.grid_position, "with global timer:", GS.relic_timer)
 
 
 func select_unit(unit: Unit) -> void:
@@ -268,14 +225,9 @@ func command_unit(selected_unit: Unit, coords: Vector2i):
     if coords == relic_position and GS.relic_holder == null and _are_tiles_adjacent(unit_coords, coords):
         # Pick up the relic
 
-        # If we are client, send a request
-        # If we are server or local, just pick up the relic
-        if MM.initialized and MM.has_active_connection() and not MM.is_authority():
-            # Client: Send pick up request to server
-            var unit_index_send = _get_unit_index(GS.selected_unit)
-            GS.request_pick_up_rpc.rpc_id(1, unit_index_send)
-        else:
-            _pickup_relic(GS.selected_unit)
+        # Client: Send pick up request to server
+        var unit_index_send = _get_unit_index(GS.selected_unit)
+        GS.request_pick_up_rpc.rpc_id(1, unit_index_send)
 
         # Sync game state if in multiplayer
         if MM.initialized and MM.has_active_connection():
@@ -296,35 +248,11 @@ func command_unit(selected_unit: Unit, coords: Vector2i):
     if enemy_unit_at_tile and _are_tiles_adjacent(unit_coords, coords):
         var attacker_position = unit_coords
         var enemy_unit_position = enemy_unit_at_tile.grid_position
-        
-        if MM.initialized and MM.has_active_connection() and not MM.is_authority():
-            # Client: Send attack request to server
-            GS.request_attack_rpc.rpc_id(1, attacker_position, enemy_unit_position)
-            clear_selection()
-            clear_all_highlights()
-        else:
-            # Host/Local: Process attack directly
-            print("Attacking enemy unit at", coords)
-            GS.selected_unit.attack(enemy_unit_at_tile)
-
-            # Save reference to attacker before clearing selection
-            var attacker: Unit = GS.selected_unit
-
-            clear_selection()
-            clear_all_highlights()
-
-            # Check if enemy unit died
-            if enemy_unit_at_tile.is_dead():
-                # Check if the dead unit was holding the relic
-                if GS.relic_holder == enemy_unit_at_tile:
-                    # Steal the relic - attacker becomes new relic holder
-                    _steal_relic(attacker, enemy_unit_at_tile)
-
-                # _handle_unit_death(enemy_unit_at_tile)
-            
-            # Sync game state if in multiplayer
-            if MM.initialized and MM.has_active_connection():
-                GS._sync_game_state()
+    
+        # Client: Send attack request to server
+        GS.request_attack_rpc.rpc_id(1, attacker_position, enemy_unit_position)
+        clear_selection()
+        clear_all_highlights()
     else:
         command_unit_to_walk(selected_unit, coords)
 
@@ -488,17 +416,15 @@ func attack_unit(attacker: Unit, target: Unit) -> void:
         # Check if the dead unit was holding the relic
         if GS.relic_holder == target:
             # Steal the relic - attacker becomes new relic holder
-            _steal_relic(attacker, target)
+            attacker.become_relic_holder(GS.relic_timer)
 
 
 # Revive function that can be called from game_state
-func revive_unit(player: int) -> void:
-    # Simplified - revives a unit at first available spawn position
-    var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(player)
-    for tile in spawn_tiles:
-        if _is_walkable(tile):
-            _revive_unit_at_tile(tile)
-            break
+func revive_unit(player: int, coords: Vector2i) -> void:
+    if _is_walkable(coords):
+        _revive_unit_at_tile(player, coords)
+    else:
+        print("Trying to revive on an occupied tile")
 
 
 # == UI ==
@@ -538,29 +464,6 @@ func _show_victory_message(player_name: String, player_color: Color) -> void:
     victory_message.add_theme_font_size_override("font_size", 48)
     victory_message.visible = true
     print("Victory message shown for", player_name, "player")
-
-
-func _switch_player_turn() -> void:
-    # Switch to the other player
-    if GS.current_player == GC.PLAYER_RED:
-        GS.current_player = GC.PLAYER_BLUE
-        print("Now it's Blue player's turn")
-    else:
-        # Increment global relic timer once per round (after Blue player's turn)
-        if GS.relic_holder:
-            GS.relic_timer += 1
-            # Update relic holder's effects with new timer value
-            GS.relic_holder.apply_relic_effects(GS.relic_timer)
-            print("Global relic timer incremented to:", GS.relic_timer)
-        GS.current_player = GC.PLAYER_RED
-        print("Now it's Red player's turn")
-
-    # Reset movement for all units of the new current player
-    _reset_player_unit_movements()
-
-    # Update the UI
-    _update_turn_indicator()
-    _update_relic_status()
 
 
 func _reset_player_unit_movements() -> void:
@@ -630,28 +533,17 @@ func _handle_revival_click(coords: Vector2i) -> void:
     var spawn_tiles: Array[Vector2i] = GC.get_spawn_positions(GS.current_player)
 
     if spawn_tiles.has(coords) and _is_walkable(coords):
-        # Check if in multiplayer
-        if MM.initialized and MM.has_active_connection():
-            if MM.is_authority():
-                # Host: Process revival directly
-                _revive_unit_at_tile(coords)
-                GS._sync_game_state()
-            else:
-                # Client: Send request to server
-                GS.request_revive_rpc.rpc_id(1, GS.current_player)
-                exit_revival_mode()
-        else:
-            # Local game
-            _revive_unit_at_tile(coords)
+        GS.request_revive_rpc.rpc_id(1, GS.current_player, coords)
+        exit_revival_mode()
+
     else:
-        # Clicked outside revival tiles - do nothing (as per spec)
         print("Clicked outside revival tiles, ignoring")
 
 
-func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
+func _revive_unit_at_tile(player: int, grid_pos: Vector2i) -> void:
     # Spawn a unit for current player
     var unit = UnitScene.instantiate()
-    unit.conflict_side = GS.current_player
+    unit.conflict_side = player
     add_child(unit)
     unit.add_to_group("units")
     unit.grid_position = grid_pos
@@ -667,10 +559,10 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     unit.has_attacked_this_turn = true # Can't attack this turn
     # Note: attack_power is already 1 by default, which is correct for revived units
 
-    print("Revived unit at", grid_pos, "for player", GS.current_player)
+    print("Revived unit at", grid_pos, "for player", player)
 
     # Decrement revive count
-    if GS.current_player == GC.PLAYER_RED:
+    if player == GC.PLAYER_RED:
         GS.red_revive_count -= 1
     else:
         GS.blue_revive_count -= 1
@@ -679,7 +571,7 @@ func _revive_unit_at_tile(grid_pos: Vector2i) -> void:
     # Update UI
     _update_revive_ui()
 
-    print("Revival complete. Revives left:", GS.red_revive_count if GS.current_player == GC.PLAYER_RED else GS.blue_revive_count)
+    print("Revival complete. Revives left:", GS.red_revive_count if player == GC.PLAYER_RED else GS.blue_revive_count)
 
 
 func _update_turn_indicator() -> void:
