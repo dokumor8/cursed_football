@@ -1,0 +1,8 @@
+- [ ] Add better sprites
+- [ ] Fix highlight system (make revive points and goals permanent, keep revive highlight during revive)
+- [ ] Make the multiplayer work in browser
+- [ ] Improve UI
+  - [ ] Indicator which player you are
+  - [ ] Disable buttons during the opponent's turn
+  - [ ] Highlight units which still have movement options left
+- [ ] Add AI

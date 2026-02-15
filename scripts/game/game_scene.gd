@@ -440,7 +440,7 @@ func highlight_walkable_tiles(unit) -> void:
     var reachable_data = get_reachable_tiles(starting_coord, unit.movement_left)
     var reachable_tiles: Array[Vector2i] = reachable_data["tiles"]
     for tile in reachable_tiles:
-        highlight_layer.set_cell(tile, 0, Vector2i(0, 0))
+        highlight_layer.set_cell(tile, GC.HIGHLIGHT_TILE_SOURCE_ID, GC.WALKABLE_HIGHLIGHT_ATLAS)
 
     # Also highlight attackable enemy units
     _highlight_attackable_enemies(unit)
@@ -499,13 +499,13 @@ func _highlight_attackable_enemies(attacking_unit: Unit) -> void:
         for unit: Unit in get_tree().get_nodes_in_group("units"):
             if unit.grid_position == tile and unit.conflict_side != GS.current_player:
                 # This is an attackable enemy unit
-                highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
+                highlight_layer.set_cell(tile, GC.HIGHLIGHT_TILE_SOURCE_ID, attack_highlight_atlas)
                 break
 
         # Also check if tile contains the relic (and relic is not held by anyone)
         if tile == relic_position and GS.relic_holder == null:
             # This is a pickupable relic
-            highlight_layer.set_cell(tile, 0, attack_highlight_atlas)
+            highlight_layer.set_cell(tile, GC.HIGHLIGHT_TILE_SOURCE_ID, attack_highlight_atlas)
 
 
 func _highlight_revival_tiles() -> void:
@@ -518,13 +518,13 @@ func _highlight_revival_tiles() -> void:
     # Highlight each spawn tile if it's not occupied
     for tile in spawn_tiles:
         if _is_walkable(tile): # Check if tile is not occupied
-            highlight_layer.set_cell(tile, 0, revival_highlight_atlas)
+            highlight_layer.set_cell(tile, GC.HIGHLIGHT_TILE_SOURCE_ID, revival_highlight_atlas)
 
 
 func _highlight_goal_tiles() -> void:
     # Highlight both goal tiles
-    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_RED), 0, goal_highlight_atlas)
-    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_BLUE), 0, goal_highlight_atlas)
+    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_RED), GC.HIGHLIGHT_TILE_SOURCE_ID, goal_highlight_atlas)
+    highlight_layer.set_cell(GC.get_goal_position(GC.PLAYER_BLUE), GC.HIGHLIGHT_TILE_SOURCE_ID, goal_highlight_atlas)
     print("Goal tiles highlighted at", GC.get_goal_position(GC.PLAYER_RED), "and", GC.get_goal_position(GC.PLAYER_BLUE))
 
 

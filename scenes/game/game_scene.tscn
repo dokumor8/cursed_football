@@ -1,36 +1,8 @@
-[gd_scene load_steps=9 format=4 uid="uid://eiseghgy1gp4"]
+[gd_scene load_steps=4 format=4 uid="uid://eiseghgy1gp4"]
 
 [ext_resource type="Script" uid="uid://u7ag56bjiyh2" path="res://scripts/game/game_scene.gd" id="1_mixcd"]
-[ext_resource type="Texture2D" uid="uid://bsb8q6nukwrny" path="res://assets/images/tiles/hex2.png" id="2_ydf3n"]
-[ext_resource type="Texture2D" uid="uid://cfs4sw0msmtsx" path="res://assets/images/tiles/hex_highlight2.png" id="3_ydf3n"]
+[ext_resource type="TileSet" uid="uid://y6xxm3yub1qk" path="res://scenes/game/game_scene.tres" id="2_ydf3n"]
 [ext_resource type="Script" uid="uid://lye14jpm20yx" path="res://scripts/game/unit_selection.gd" id="4_6hqhf"]
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6hqhf"]
-texture = ExtResource("2_ydf3n")
-texture_region_size = Vector2i(106, 92)
-0:0/0 = 0
-
-[sub_resource type="TileSet" id="TileSet_mixcd"]
-tile_shape = 3
-tile_offset_axis = 1
-tile_size = Vector2i(97, 83)
-sources/0 = SubResource("TileSetAtlasSource_6hqhf")
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_p0de3"]
-texture = ExtResource("3_ydf3n")
-texture_region_size = Vector2i(106, 92)
-0:0/0 = 0
-1:0/0 = 0
-2:0/0 = 0
-0:1/0 = 0
-1:1/0 = 0
-2:1/0 = 0
-
-[sub_resource type="TileSet" id="TileSet_mj2jn"]
-tile_shape = 3
-tile_offset_axis = 1
-tile_size = Vector2i(97, 83)
-sources/0 = SubResource("TileSetAtlasSource_p0de3")
 
 [node name="GameScene" type="Node2D" groups=["main_scene"]]
 script = ExtResource("1_mixcd")
@@ -38,11 +10,11 @@ script = ExtResource("1_mixcd")
 [node name="TileMapLayer" type="TileMapLayer" parent="."]
 position = Vector2(0, 20)
 tile_map_data = PackedByteArray("AAADAAQAAAAAAAAAAAAFAAQAAAAAAAAAAAACAAUAAAAAAAAAAAADAAUAAAAAAAAAAAAEAAUAAAAAAAAAAAAFAAUAAAAAAAAAAAAEAAYAAAAAAAAAAAAGAAUAAAAAAAAAAAAEAAQAAAAAAAAAAAAEAAMAAAAAAAAAAAAFAAMAAAAAAAAAAAAGAAQAAAAAAAAAAAAHAAQAAAAAAAAAAAABAAQAAAAAAAAAAAACAAQAAAAAAAAAAAADAAMAAAAAAAAAAAABAAMAAAAAAAAAAAACAAMAAAAAAAAAAAADAAIAAAAAAAAAAAAEAAIAAAAAAAAAAAAFAAIAAAAAAAAAAAAGAAMAAAAAAAAAAAAHAAMAAAAAAAAAAAAHAAIAAAAAAAAAAAAGAAIAAAAAAAAAAAAFAAEAAAAAAAAAAAAEAAEAAAAAAAAAAAADAAEAAAAAAAAAAAACAAIAAAAAAAAAAAABAAIAAAAAAAAAAAABAAEAAAAAAAAAAAACAAEAAAAAAAAAAAADAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAGAAEAAAAAAAAAAAAHAAEAAAAAAAAAAAA=")
-tile_set = SubResource("TileSet_mixcd")
+tile_set = ExtResource("2_ydf3n")
 
 [node name="HighlightLayer" type="TileMapLayer" parent="."]
 position = Vector2(0, 20)
-tile_set = SubResource("TileSet_mj2jn")
+tile_set = ExtResource("2_ydf3n")
 
 [node name="UILayer" type="CanvasLayer" parent="."]
 

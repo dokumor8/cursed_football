@@ -31,7 +31,9 @@ var INITIAL_RELIC_POSITION: Vector2i = Vector2i(4, 3)  # Center of map
 var RELIC_HOLDER_SPEED: Array[int] =  [0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4]
 var RELIC_HOLDER_ATTACK: Array[int] = [0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3]
 
-# Tile atlas coordinates for highlighting
+# Tile atlas ID and coordinates for highlighting
+var HIGHLIGHT_TILE_SOURCE_ID: int = 2
+var WALKABLE_HIGHLIGHT_ATLAS: Vector2i = Vector2i(0, 0)
 var REVIVAL_HIGHLIGHT_ATLAS: Vector2i = Vector2i(1, 0)
 var ATTACK_HIGHLIGHT_ATLAS: Vector2i = Vector2i(2, 0)
 var GOAL_HIGHLIGHT_ATLAS: Vector2i = Vector2i(0, 1)
