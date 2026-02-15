@@ -22,9 +22,9 @@ var is_relic_holder: bool = false
 func _ready() -> void:
     # Set the appropriate sprite based on conflict side
     if conflict_side == GC.PLAYER_RED:
-        sprite.texture = preload("res://assets/images/objects/unit_red.png")
+        sprite.texture = preload("res://assets/images/objects/unit_red2.png")
     else:
-        sprite.texture = preload("res://assets/images/objects/unit_blue.png")
+        sprite.texture = preload("res://assets/images/objects/unit_blue2.png")
     # Initialize movement for first turn
     movement_left = speed
     # Initialize HP
@@ -115,7 +115,7 @@ func become_relic_holder(timer: int) -> void:
 func _update_relic_sprite() -> void:
     if is_relic_holder:
         if conflict_side == GC.PLAYER_RED:
-            sprite.texture = preload("res://assets/images/objects/relic_holder_red.png")
+            sprite.texture = preload("res://assets/images/objects/relic_holder_red2.png")
         else:
             sprite.texture = preload("res://assets/images/objects/relic_holder_blue.png")
     else:
